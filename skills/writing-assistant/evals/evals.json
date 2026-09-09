@@ -1,0 +1,63 @@
+{
+  "skill": "writing-assistant",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "Draft an email to my landlord about the leaking faucet in the bathroom.",
+      "expected": "Fires this skill. Produces a complete draft email (not code, not a summary) matching loaded voice/formality preferences, or reasonable neutral defaults if none are set."
+    },
+    {
+      "type": "positive",
+      "prompt": "Write a short bio for my personal website, two to three sentences.",
+      "expected": "Fires this skill. Produces a bio respecting formatting.max_length and voice preferences; stays within the requested length."
+    },
+    {
+      "type": "positive",
+      "prompt": "Rewrite this paragraph to sound more professional: 'hey team just a heads up the server's gonna be down for like an hour tonight lol'",
+      "expected": "Fires this skill in edit mode. The explicit 'more professional' instruction overrides any casual voice preference for this one output, silently."
+    },
+    {
+      "type": "positive",
+      "prompt": "Turn these bullet points into a short paragraph: - launched in March - grew to 10k users - now profitable",
+      "expected": "Fires this skill. Produces flowing prose from the bullets, respecting formatting.style if set."
+    },
+    {
+      "type": "negative",
+      "prompt": "Write a Python function that reverses a linked list.",
+      "expected": "Does not fire this skill. This is a code-writing task, not prose drafting."
+    },
+    {
+      "type": "negative",
+      "prompt": "Summarize this 10-page article into three bullet points.",
+      "expected": "Does not fire this skill. Condensing existing source material is a distinct job (future source-summarizer skill), not drafting new content."
+    },
+    {
+      "type": "negative",
+      "prompt": "Write a commit message for these staged changes.",
+      "expected": "Does not fire this skill. Commit messages follow a specific convention-driven format handled by a separate skill (future commit-and-pr)."
+    },
+    {
+      "type": "preference-divergence",
+      "prompt": "Write a two-sentence announcement that the office will be closed this Friday for a holiday.",
+      "profile_a": {
+        "voice.formality": "casual",
+        "voice.verbosity": "terse",
+        "voice.emoji": "frequent",
+        "voice.person": "first",
+        "identity.spelling": "us",
+        "formatting.banned_phrases": ["reach out"]
+      },
+      "expected_a": "Heads up — we're closed this Friday for the holiday! Enjoy the long weekend, and I'll see everyone back Monday.",
+      "profile_b": {
+        "voice.formality": "formal",
+        "voice.verbosity": "detailed",
+        "voice.emoji": "never",
+        "voice.person": "third",
+        "identity.spelling": "uk",
+        "formatting.banned_phrases": []
+      },
+      "expected_b": "Please note that the office will be closed this Friday in observance of the upcoming holiday, with normal operations resuming the following business day. Colleagues are encouraged to organise any time-sensitive matters accordingly before then.",
+      "expected": "The same prompt produces genuinely different output under the two profiles (contractions/emoji/length/spelling all differ), while both versions convey the same underlying facts (closed Friday, holiday, reopens next business day) and neither suppresses information the other includes."
+    }
+  ]
+}

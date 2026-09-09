@@ -12,11 +12,28 @@ This repo is being built one vertical slice at a time: the preferences system pl
 
 ## Quickstart
 
-Coming once the preferences system and first skill (`writing-assistant`) ship — see the build plan for progress.
+1. Copy the skill(s) you want into your personal skills directory:
+
+   ```sh
+   cp -r skills/preferences-setup ~/.claude/skills/
+   cp -r skills/writing-assistant ~/.claude/skills/
+   ```
+
+2. In a Claude Code session, ask it to set up your preferences (e.g. "set up my SuperClaude preferences") — this runs `preferences-setup`, asks a handful of questions, and writes `~/.claude/skills-preferences.yaml`.
+3. Ask for something to be written (e.g. "draft an email to my landlord about a leaking faucet") — `writing-assistant` picks up your preferences automatically.
+
+No preferences file yet? Every skill still works — it falls back to the neutral defaults in `config/defaults.yaml`.
+
+A full guide to every install path (personal, project, packaged bundles) lands in `docs/INSTALL.md` in Phase 6.
 
 ## Catalog
 
-Coming once skills exist. See [`docs/PLAN.md`](docs/PLAN.md) Section 8 for the planned catalog.
+| Skill | Purpose |
+|---|---|
+| [`preferences-setup`](skills/preferences-setup/) | Interviews you and writes your preferences file; also handles incremental edits later. |
+| [`writing-assistant`](skills/writing-assistant/) | General-purpose drafting and editing that respects your voice, formatting, and banned-phrase preferences. |
+
+More skills are added one at a time, each fully tested and documented before the next starts — see [`docs/PLAN.md`](docs/PLAN.md) Section 8 for the full planned catalog.
 
 ## Contributing
 
