@@ -43,6 +43,31 @@ jobs:
       - name: Validate skill frontmatter, references, and evals
         run: python3 tools/validate_skills.py
 
+  plugin-manifest-validate:
+    name: Validate plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate .claude-plugin/*.json
+        run: |
+          set -euo pipefail
+          python3 -c "
+          import json
+          plugin = json.load(open('.claude-plugin/plugin.json'))
+          for field in ('name', 'description'):
+              assert field in plugin, f'plugin.json missing required field: {field}'
+
+          marketplace = json.load(open('.claude-plugin/marketplace.json'))
+          for field in ('name', 'owner', 'plugins'):
+              assert field in marketplace, f'marketplace.json missing required field: {field}'
+          assert isinstance(marketplace['plugins'], list) and marketplace['plugins'], 'marketplace.json plugins must be a non-empty list'
+          for entry in marketplace['plugins']:
+              for field in ('name', 'source'):
+                  assert field in entry, f'marketplace.json plugin entry missing required field: {field}'
+          print('Plugin manifests OK.')
+          "
+
   markdown-lint:
     name: Markdown lint
     runs-on: ubuntu-latest

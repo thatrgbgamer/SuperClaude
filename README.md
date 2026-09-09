@@ -12,19 +12,29 @@ The preferences system and authoring tooling are built, and skills are being add
 
 ## Quickstart
 
-1. Copy the skill(s) you want into your personal skills directory, e.g.:
+**Want the whole collection?** In a Claude Code session:
 
-   ```sh
-   cp -r skills/preferences-setup ~/.claude/skills/
-   cp -r skills/writing-assistant ~/.claude/skills/
-   ```
+```text
+/plugin marketplace add thatrgbgamer/SuperClaude
+/plugin install superclaude@superclaude
+```
 
-2. In a Claude Code session, ask it to set up your preferences (e.g. "set up my SuperClaude preferences") — this runs `preferences-setup`, asks a handful of questions, and writes `~/.claude/skills-preferences.yaml`.
-3. Ask for whatever the skill does (e.g. "draft an email to my landlord about a leaking faucet") — it picks up your preferences automatically.
+**Want just a skill or two?** Clone the repo and copy what you want into your personal skills directory:
+
+```sh
+git clone https://github.com/thatrgbgamer/SuperClaude.git
+cp -r SuperClaude/skills/preferences-setup ~/.claude/skills/
+cp -r SuperClaude/skills/writing-assistant ~/.claude/skills/
+```
+
+Either way, next:
+
+1. In a Claude Code session, ask it to set up your preferences (e.g. "set up my SuperClaude preferences") — this runs `preferences-setup`, asks a handful of questions, and writes `~/.claude/skills-preferences.yaml`.
+2. Ask for whatever a skill does (e.g. "draft an email to my landlord about a leaking faucet") — it picks up your preferences automatically.
 
 No preferences file yet? Every skill still works — it falls back to the neutral defaults in `config/defaults.yaml`.
 
-A full guide to every install path (personal, project, packaged bundles) lands in `docs/INSTALL.md` in Phase 6.
+Every install path (plugin, personal, project, packaged bundles, and the recommended starter set) is covered in [`docs/INSTALL.md`](docs/INSTALL.md).
 
 ## Catalog
 

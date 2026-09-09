@@ -1,0 +1,10 @@
+{
+  "name": "superclaude",
+  "description": "A collection of Claude Skills with a shared, user-owned preferences layer for voice, formatting, and workflow — skills adapt to you instead of shipping personalized to whoever wrote them.",
+  "version": "0.1.0",
+  "author": {
+    "name": "thatRGBGamer"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/thatrgbgamer/SuperClaude"
+}

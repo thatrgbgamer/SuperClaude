@@ -1,0 +1,13 @@
+{
+  "name": "superclaude",
+  "owner": {
+    "name": "thatRGBGamer"
+  },
+  "plugins": [
+    {
+      "name": "superclaude",
+      "source": "./",
+      "description": "The full SuperClaude skill collection: the preferences system plus every skill in skills/. Installs everything at once — for a single skill or a curated subset, copy individual folders instead (see docs/INSTALL.md)."
+    }
+  ]
+}
