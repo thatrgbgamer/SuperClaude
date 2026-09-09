@@ -1,0 +1,35 @@
+{
+  "skill": "research-brief",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "Research the current landscape of approaches to X and give me a sourced brief.",
+      "expected": "Fires this skill. Produces findings each labeled established/likely/disputed/unclear with sources, separates consensus from disagreement, and states remaining gaps."
+    },
+    {
+      "type": "positive",
+      "prompt": "Compare these two approaches for me with citations — I want to see where they actually differ.",
+      "expected": "Fires this skill. Uses a comparison table if the attributes line up across both options, and explicitly separates agreed-upon facts from genuinely disputed ones."
+    },
+    {
+      "type": "positive",
+      "prompt": "What does the evidence actually say about Y? I keep seeing conflicting claims online.",
+      "expected": "Fires this skill, and specifically surfaces the disagreement explicitly rather than picking a side to sound more confident."
+    },
+    {
+      "type": "negative",
+      "prompt": "What's 15% of 240?",
+      "expected": "Does not fire this skill. Settled, immediate answer — no research brief needed."
+    },
+    {
+      "type": "negative",
+      "prompt": "Summarize this specific article I'm pasting for you.",
+      "expected": "Does not fire this skill. A single given source to condense is source-summarizer's job, not open multi-source research."
+    },
+    {
+      "type": "negative",
+      "prompt": "What do you think is the best programming language to learn first?",
+      "expected": "Does not fire this skill. A request for opinion, not sourced research findings."
+    }
+  ]
+}

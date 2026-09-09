@@ -1,0 +1,35 @@
+{
+  "skill": "document-formatter",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "Turn my messy meeting notes into a well-organized document with sections for decisions, action items, and open questions: [rough notes].",
+      "expected": "Fires this skill. Groups related points regardless of original order, produces real section headings, and flags any ambiguity in the source rather than resolving it silently."
+    },
+    {
+      "type": "positive",
+      "prompt": "I have a bunch of half-written sections about our project — can you organize this into one coherent document?",
+      "expected": "Fires this skill. Finds the natural structure across the fragments and organizes them into a properly headed document respecting formatting.heading_depth."
+    },
+    {
+      "type": "positive",
+      "prompt": "Reformat this document to use our usual heading style — deeper nesting and bullets for lists.",
+      "expected": "Fires this skill. Applies formatting.heading_depth and formatting.style concretely to restructure the existing document."
+    },
+    {
+      "type": "negative",
+      "prompt": "Turn these three bullet points into a short paragraph: - launched in March - grew to 10k users - now profitable",
+      "expected": "Does not fire this skill. Small enough to stay a single short paragraph — writing-assistant's job."
+    },
+    {
+      "type": "negative",
+      "prompt": "Summarize this 10-page article into three bullet points.",
+      "expected": "Does not fire this skill. Condensing an already-polished source is source-summarizer's job, not restructuring rough notes."
+    },
+    {
+      "type": "negative",
+      "prompt": "Create a Word document from this content with a table of contents and page numbers.",
+      "expected": "Does not fire this skill. Producing a specific file format (.docx) with format-specific features is the docx skill's job."
+    }
+  ]
+}

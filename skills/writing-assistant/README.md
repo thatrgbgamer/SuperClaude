@@ -23,6 +23,7 @@ General-purpose drafting and editing — emails, short posts, bios, farewell not
 - "Review this code for bugs." — code review, not writing.
 - "What's the weather like today?" — not a writing/drafting task at all.
 - "Write a cold outreach email to someone I've never met." — the strategic angle is the open question here; that's `email-drafter`, which produces multiple angled variants.
+- "Turn my messy meeting notes into a well-organized document with sections for decisions, action items, and open questions." — real multi-section restructuring is `document-formatter`'s job; this skill is for shorter, already-coherent pieces.
 
 ## Inputs
 

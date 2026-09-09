@@ -1,0 +1,35 @@
+{
+  "skill": "debug-triage",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "This test fails intermittently, maybe one in five runs, and I can't figure out why.",
+      "expected": "Fires this skill. Establishes a reliable-enough repro, isolates what varies between passing and failing runs, ranks hypotheses, tests them one at a time, and verifies the fix against the original repro."
+    },
+    {
+      "type": "positive",
+      "prompt": "This works fine locally but throws errors in production and I've already tried restarting the service and clearing the cache with no luck.",
+      "expected": "Fires this skill. Notes what's already been ruled out, isolates what differs between local and production, and proceeds through hypothesis testing rather than suggesting more of the same already-tried fixes."
+    },
+    {
+      "type": "positive",
+      "prompt": "Something is causing this function to occasionally return null but I have no idea what triggers it.",
+      "expected": "Fires this skill given the non-obvious, intermittent nature of the failure."
+    },
+    {
+      "type": "negative",
+      "prompt": "This line has a typo — 'lenght' should be 'length'.",
+      "expected": "Does not fire this skill. Obvious single cause — just fix it directly, no methodology needed."
+    },
+    {
+      "type": "negative",
+      "prompt": "Can you review this module for code quality issues?",
+      "expected": "Does not fire this skill. Reviewing working code is the built-in code-review skill's job, not a live failure investigation."
+    },
+    {
+      "type": "negative",
+      "prompt": "Can you explain what this recursive function is doing?",
+      "expected": "Does not fire this skill. Explaining existing code behavior, not debugging a failure."
+    }
+  ]
+}

@@ -42,6 +42,11 @@
       "expected": "Does not fire this skill. The strategic angle (how direct, how warm) is the open question here — that belongs to email-drafter, which produces multiple angled variants instead of one draft."
     },
     {
+      "type": "negative",
+      "prompt": "Turn my messy meeting notes into a well-organized document with sections for decisions, action items, and open questions.",
+      "expected": "Does not fire this skill. Real multi-section restructuring with headings belongs to document-formatter; this skill handles shorter, already-coherent pieces."
+    },
+    {
       "type": "preference-divergence",
       "prompt": "Write a two-sentence announcement that the office will be closed this Friday for a holiday.",
       "profile_a": {
