@@ -37,6 +37,11 @@
       "expected": "Does not fire this skill. Commit messages follow a specific convention-driven format handled by a separate skill (future commit-and-pr)."
     },
     {
+      "type": "negative",
+      "prompt": "Write a cold outreach email to a potential mentor I've never spoken to.",
+      "expected": "Does not fire this skill. The strategic angle (how direct, how warm) is the open question here — that belongs to email-drafter, which produces multiple angled variants instead of one draft."
+    },
+    {
       "type": "preference-divergence",
       "prompt": "Write a two-sentence announcement that the office will be closed this Friday for a holiday.",
       "profile_a": {

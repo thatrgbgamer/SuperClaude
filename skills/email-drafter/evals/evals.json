@@ -1,0 +1,35 @@
+{
+  "skill": "email-drafter",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "Write a cold outreach email to a potential mentor in my field — we've never spoken.",
+      "expected": "Fires this skill. Produces two or three variants differing in directness/warmth, each labeled with its angle and when to use it, not one email restated three ways."
+    },
+    {
+      "type": "positive",
+      "prompt": "I need to email a client to push back on scope creep without burning the relationship.",
+      "expected": "Fires this skill. Recognizes the strategic tension (assertive vs. relationship-preserving) and offers variants that trade off directness against warmth."
+    },
+    {
+      "type": "positive",
+      "prompt": "Can you give me a couple of options for a follow-up email? They haven't responded to my message from two weeks ago.",
+      "expected": "Fires this skill — explicit request for options on a follow-up, a classic strategic-angle situation (gentle nudge vs. direct check-in vs. offering an easy out)."
+    },
+    {
+      "type": "negative",
+      "prompt": "Email my team that the server will be down for an hour tonight for maintenance.",
+      "expected": "Does not fire this skill. Routine, single-purpose, informational email with no real strategic angle — belongs to writing-assistant, which produces one clean draft."
+    },
+    {
+      "type": "negative",
+      "prompt": "Rewrite this email to sound more formal: 'hey just checking if you got my last message'.",
+      "expected": "Does not fire this skill. This is editing existing text for tone, not choosing between outreach strategies — writing-assistant's job."
+    },
+    {
+      "type": "negative",
+      "prompt": "Summarize this email thread into three bullet points.",
+      "expected": "Does not fire this skill. Condensing existing content is source-summarizer's job, not drafting."
+    }
+  ]
+}

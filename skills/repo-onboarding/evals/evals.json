@@ -1,0 +1,35 @@
+{
+  "skill": "repo-onboarding",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "I just joined this project — can you give me a tour of the codebase?",
+      "expected": "Fires this skill. Produces the full template: entry points, architecture, conventions, and a map of common task types to where they live — after actually reading representative files, not guessing from directory names."
+    },
+    {
+      "type": "positive",
+      "prompt": "Where would I make a change to add a new API endpoint in this project?",
+      "expected": "Fires this skill in narrow mode. Skips the full tour and answers just this question, pointing at the specific file/pattern existing endpoints follow."
+    },
+    {
+      "type": "positive",
+      "prompt": "What testing conventions does this repo use?",
+      "expected": "Fires this skill in narrow mode, focused on the conventions section."
+    },
+    {
+      "type": "negative",
+      "prompt": "Create a CLAUDE.md file documenting this codebase for future sessions.",
+      "expected": "Does not fire this skill. Writing a persistent instructions file for Claude's own use is the init skill's job, not a human-facing walkthrough."
+    },
+    {
+      "type": "negative",
+      "prompt": "Review this pull request for correctness issues.",
+      "expected": "Does not fire this skill. Code review, not orientation."
+    },
+    {
+      "type": "negative",
+      "prompt": "This function is throwing a null pointer exception — can you help me figure out why?",
+      "expected": "Does not fire this skill. A live debugging task, not general codebase orientation."
+    }
+  ]
+}

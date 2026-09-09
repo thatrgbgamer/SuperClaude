@@ -57,8 +57,13 @@ Every skill's claimed territory, in one place, so a new addition can be checked 
 | Skill | Territory | Explicitly excludes |
 |---|---|---|
 | `preferences-setup` | Creating/editing/viewing the user's SuperClaude preferences file itself. | One-off style overrides scoped to a single output; generic YAML/config questions; installing software. |
-| `writing-assistant` | General-purpose drafting/editing of prose not covered by a more specific skill: emails, posts, bios, announcements, rewrites. | Code; summarizing existing source material; commit messages/PR descriptions; code review. |
+| `writing-assistant` | General-purpose drafting/editing of routine prose not covered by a more specific skill: routine emails, posts, bios, announcements, rewrites. | Code; summarizing existing source material (`source-summarizer`); commit messages/PR descriptions; code review; strategic/outreach emails where the angle itself is the open question (`email-drafter`). |
 | `skill-scaffold` | Creating a new skill in this repo, following every convention here. | Editing an existing skill; one-off scripts not meant to join `skills/`. |
+| `email-drafter` | Strategic emails where the approach itself is a real choice: cold outreach, follow-ups after silence, declines, negotiation asks. Produces multiple angled variants. | Routine, single-purpose emails with no real angle to weigh (`writing-assistant`); editing existing text for tone (`writing-assistant`); summarizing an email thread (`source-summarizer`). |
+| `repo-onboarding` | Explaining an unfamiliar codebase to a person: entry points, architecture, conventions, where a change would go. Conversational, doesn't write files by default. | Writing a persistent `CLAUDE.md` for Claude's own use (the built-in `init` skill); reviewing a PR (the built-in `code-review` skill); debugging a specific failure. |
+| `source-summarizer` | Condensing existing source material (articles, papers, transcripts, docs) at a configurable depth. | Generating new content (`writing-assistant`); explaining code behavior; drafting something merely informed by a source rather than summarizing the source itself. |
+
+Two deliberate non-duplications, since this environment already ships them: `code-review` and `init` are Anthropic-provided skills already available — nothing in this catalog reimplements them. `repo-onboarding` sits next to `init` but does a different job (explaining the codebase to a human conversationally vs. writing a persistent instructions file); `email-drafter` sits next to `writing-assistant` but only handles the subset of email requests where angle is a genuine open question.
 
 ## Before you propose a new skill
 

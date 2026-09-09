@@ -1,0 +1,35 @@
+{
+  "skill": "source-summarizer",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "Give me the TL;DR of this article: [long article text].",
+      "expected": "Fires this skill. Produces a summary at a depth derived from voice.verbosity (or the requested depth if stated), preserving any caveats or unresolved points in the source."
+    },
+    {
+      "type": "positive",
+      "prompt": "Can you turn this hour-long meeting transcript into a structured outline of the main points?",
+      "expected": "Fires this skill. Produces a detailed outline mirroring the transcript's structure, noting if only part of a very long transcript was reviewed."
+    },
+    {
+      "type": "positive",
+      "prompt": "One-paragraph summary of this research paper's findings, please.",
+      "expected": "Fires this skill. Explicit depth requested (one paragraph) overrides any preference-derived default. Flags if the paper's findings are contested or preliminary rather than presenting them as settled."
+    },
+    {
+      "type": "negative",
+      "prompt": "Write a blog post introducing our new product feature.",
+      "expected": "Does not fire this skill. Generating new content is writing-assistant's job, not condensing existing source material."
+    },
+    {
+      "type": "negative",
+      "prompt": "Explain how this recursive function works.",
+      "expected": "Does not fire this skill. Explaining code behavior, not summarizing a document."
+    },
+    {
+      "type": "negative",
+      "prompt": "Draft a follow-up email based on the discussion in this thread.",
+      "expected": "Does not fire this skill. Drafting new content informed by a source is a different job (writing-assistant or email-drafter) than summarizing the source itself."
+    }
+  ]
+}

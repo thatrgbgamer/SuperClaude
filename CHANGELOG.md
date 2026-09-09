@@ -14,3 +14,4 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Authoring tooling: `tools/new_skill.py` (scaffold), `tools/validate_skills.py` (frontmatter/line-count/reference-link/evals checks, now what CI actually runs), `tools/package_skill.py` (zip a skill into a `.skill` bundle).
 - `skill-scaffold` skill: builds a new skill following every convention here, dogfooding the repo.
 - `docs/AUTHORING.md`: skill-writing conventions plus the trigger map.
+- Tier 2 skills (batch 1): `email-drafter` (strategic/outreach emails as multiple angled variants), `repo-onboarding` (codebase walkthroughs for humans), `source-summarizer` (configurable-depth summaries of existing source material). Trigger map reviewed across all six skills for collisions; scoped `writing-assistant` explicitly around `email-drafter`, and `repo-onboarding` explicitly around the built-in `init` and `code-review` skills.

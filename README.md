@@ -33,6 +33,9 @@ A full guide to every install path (personal, project, packaged bundles) lands i
 | [`preferences-setup`](skills/preferences-setup/) | Interviews you and writes your preferences file; also handles incremental edits later. |
 | [`writing-assistant`](skills/writing-assistant/) | General-purpose drafting and editing that respects your voice, formatting, and banned-phrase preferences. |
 | [`skill-scaffold`](skills/skill-scaffold/) | Creates a new skill in this repo following every convention — for contributors, not end users. |
+| [`email-drafter`](skills/email-drafter/) | Strategic emails (outreach, follow-ups, declines, negotiation) as multiple angled variants, not one take. |
+| [`repo-onboarding`](skills/repo-onboarding/) | Explains an unfamiliar codebase — entry points, architecture, conventions, where a change belongs. |
+| [`source-summarizer`](skills/source-summarizer/) | Condenses articles, papers, transcripts, or docs at a configurable depth. |
 
 More skills are added one at a time, each fully tested and documented before the next starts — see [`docs/PLAN.md`](docs/PLAN.md) Section 8 for the full planned catalog.
 

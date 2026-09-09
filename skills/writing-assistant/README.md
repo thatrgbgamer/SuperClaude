@@ -18,10 +18,11 @@ General-purpose drafting and editing — emails, short posts, bios, farewell not
 ## Non-triggers
 
 - "Write a Python function that sorts a list." — code, not prose.
-- "Summarize this article for me." — condensing existing source material is a different job (future `source-summarizer`), not drafting new content.
+- "Summarize this article for me." — condensing existing source material is a different job (`source-summarizer`), not drafting new content.
 - "Write a commit message for these changes." — a specific, convention-driven format (future `commit-and-pr`).
 - "Review this code for bugs." — code review, not writing.
 - "What's the weather like today?" — not a writing/drafting task at all.
+- "Write a cold outreach email to someone I've never met." — the strategic angle is the open question here; that's `email-drafter`, which produces multiple angled variants.
 
 ## Inputs
 
