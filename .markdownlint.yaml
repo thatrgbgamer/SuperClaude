@@ -7,3 +7,4 @@ MD024:
   siblings_only: true # allow repeated headings across different sections
 MD026:
   punctuation: ".,;:" # allow trailing "!" — it's literally in the project name
+MD060: false # table column padding style — not worth chasing across every schema table

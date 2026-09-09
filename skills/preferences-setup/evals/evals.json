@@ -1,0 +1,35 @@
+{
+  "skill": "preferences-setup",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "Set up my SuperClaude preferences.",
+      "expected": "Fires this skill. No existing file found, so it runs the full batched interview with stated defaults, then shows the exact YAML it will write to ~/.claude/skills-preferences.yaml and asks for confirmation before writing."
+    },
+    {
+      "type": "positive",
+      "prompt": "Can you make my preferences more casual and add 'synergy' to my banned phrases list?",
+      "expected": "Fires this skill in edit mode. Loads the existing preferences file, changes only voice.formality and formatting.banned_phrases, leaves every other key untouched, shows the diff, and confirms before writing."
+    },
+    {
+      "type": "positive",
+      "prompt": "What are my current SuperClaude preferences?",
+      "expected": "Fires this skill in view-only mode: reads the file at the standard resolution order and shows its contents readably. Does not write anything."
+    },
+    {
+      "type": "negative",
+      "prompt": "Can you rewrite this specific email to sound more casual?",
+      "expected": "Does not fire this skill. This is a one-off request-level override applied to a single piece of output, not a persisted preferences change."
+    },
+    {
+      "type": "negative",
+      "prompt": "What's a sensible YAML structure for storing app configuration in general?",
+      "expected": "Does not fire this skill. Generic YAML/config design question, unrelated to this repo's preferences file."
+    },
+    {
+      "type": "negative",
+      "prompt": "Install my preferred code editor on this machine.",
+      "expected": "Does not fire this skill. This is about installing software, not about reading or writing the preferences file."
+    }
+  ]
+}

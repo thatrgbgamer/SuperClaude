@@ -1,0 +1,80 @@
+# SuperClaude preferences — example / template.
+#
+# Copy this file to one of:
+#   ~/.claude/skills-preferences.yaml   (global — applies everywhere)
+#   .claude/preferences.yaml            (project-only override)
+#
+# Both of those paths are gitignored. Never commit a filled-in copy of
+# this file to a public repo.
+#
+# Everything is optional. Delete any group or key you don't care about —
+# skills fall back to config/defaults.yaml for whatever is missing. Full
+# schema and explanations: docs/PREFERENCES.md.
+#
+# Prefer not to hand-edit YAML? Run the preferences-setup skill instead —
+# it asks a handful of questions and writes this file for you.
+
+identity:
+  name: ""              # what to call you, e.g. "Jordan" — blank to skip
+  timezone: ""           # IANA name, e.g. "America/Chicago"
+  locale: ""             # e.g. "en-US", "en-GB"
+  units: ""              # "metric" or "imperial"
+  date_format: ""        # e.g. "YYYY-MM-DD"
+  spelling: ""           # "us" or "uk"
+
+voice:
+  formality: ""          # "casual", "neutral", or "formal"
+  verbosity: ""          # "terse", "balanced", or "detailed"
+  humor: ""              # "none", "light", or "frequent"
+  emoji: ""              # "never", "rare", or "frequent"
+  hedging: ""            # "low", "medium", or "high"
+  person: ""             # "first" or "third"
+
+formatting:
+  style: ""              # "prose", "bullets", or "mixed"
+  heading_depth: ""      # "shallow" or "deep"
+  tables: ""             # "avoid", "when-helpful", or "prefer"
+  code_fence_language_tags: null   # true or false
+  banned_phrases: []     # e.g. ["synergy", "delve", "in today's world"]
+  max_length:
+    chat: null           # soft word cap for chat replies, or leave null
+    document: null        # soft word cap for generated documents, or leave null
+
+stack:
+  languages: []          # e.g. ["python", "typescript"]
+  package_managers: []   # e.g. ["uv", "pnpm"]
+  test_frameworks: []    # e.g. ["pytest", "vitest"]
+  os: ""                 # e.g. "macos", "ubuntu", "windows"
+  shell: ""              # e.g. "zsh", "fish", "powershell"
+  editor: ""             # e.g. "vscode", "neovim"
+  container_runtime: ""  # e.g. "docker", "podman", or "none"
+  cloud_provider: ""     # e.g. "aws", "gcp", "azure", or "none"
+
+workflow:
+  commit_convention: ""  # e.g. "conventional-commits"
+  branch_naming: ""      # e.g. "type/short-description"
+  pr_style: ""           # a sentence describing what you want in a PR description
+  review_depth: ""       # "light", "standard", or "thorough"
+  run_tests_before_proposing: null      # true or false
+  confirm_before_creating_files: null   # true or false
+
+content:
+  platforms: []          # where you publish, e.g. ["blog", "youtube"]
+  audience: ""           # a sentence describing who you write for
+  brand_voice_file: ""   # path to a longer voice/style doc, if you have one
+
+privacy:
+  never_include: []      # things that must never appear in output
+  redact: null           # true or false — actively redact never_include matches
+  placeholders_for_names_locations: null   # true or false
+
+safety:
+  confirm_before_network_calls: null        # true or false
+  confirm_before_installing_packages: null  # true or false
+  # There is intentionally no key here to disable confirmation before a
+  # destructive filesystem operation. That confirmation is not something
+  # preferences can turn off. See docs/PREFERENCES.md "Hard limits".
+
+notes: |
+  Anything the fields above don't cover. Free text — skills read this
+  for nuance, but the same hard limits in docs/PREFERENCES.md still apply.
