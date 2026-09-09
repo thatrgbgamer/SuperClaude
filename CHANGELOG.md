@@ -11,3 +11,6 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Preferences system: `docs/PREFERENCES.md`, `shared/preferences-loader.md`, `config/defaults.yaml`, `config/preferences.example.yaml`.
 - `preferences-setup` skill: interviews the user and writes/edits their preferences file.
 - `writing-assistant` skill: general-purpose drafting and editing that respects voice, formatting, and banned-phrase preferences — the first proof that the same prompt produces visibly different output under different preferences.
+- Authoring tooling: `tools/new_skill.py` (scaffold), `tools/validate_skills.py` (frontmatter/line-count/reference-link/evals checks, now what CI actually runs), `tools/package_skill.py` (zip a skill into a `.skill` bundle).
+- `skill-scaffold` skill: builds a new skill following every convention here, dogfooding the repo.
+- `docs/AUTHORING.md`: skill-writing conventions plus the trigger map.

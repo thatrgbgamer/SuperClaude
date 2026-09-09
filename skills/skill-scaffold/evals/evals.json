@@ -1,0 +1,25 @@
+{
+  "skill": "skill-scaffold",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "Let's add a new skill to this repo for turning meeting notes into a list of action items with owners and dates.",
+      "expected": "Fires this skill. Confirms the problem/triggers/non-triggers first, then runs tools/new_skill.py meeting-to-actions, fills in the spec and body, writes real evals including a negative case, and runs tools/validate_skills.py to confirm it passes."
+    },
+    {
+      "type": "positive",
+      "prompt": "Start a new skill called release-notes.",
+      "expected": "Fires this skill. Since no problem statement or trigger phrases were given, asks the Step 1 questions from CONTRIBUTING.md before scaffolding anything."
+    },
+    {
+      "type": "negative",
+      "prompt": "Can you fix the trigger description on the writing-assistant skill so it doesn't collide with email-drafter?",
+      "expected": "Does not fire this skill. This is an edit to an existing skill's frontmatter, not scaffolding a new one."
+    },
+    {
+      "type": "negative",
+      "prompt": "Write me a quick one-off Python script to rename a batch of files.",
+      "expected": "Does not fire this skill. Not meant to join skills/ — just a normal scripting task."
+    }
+  ]
+}

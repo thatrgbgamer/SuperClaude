@@ -9,7 +9,7 @@ A new skill needs a demonstrated use case, not just an idea. Before writing one,
 - What goes wrong today without this skill?
 - What would a user actually type to trigger it?
 - What should *not* trigger it, even though it looks adjacent?
-- Does an existing skill in the catalog already cover this territory? (Check the trigger map once it exists in `docs/AUTHORING.md`.)
+- Does an existing skill in the catalog already cover this territory? (Check the trigger map in `docs/AUTHORING.md`.)
 - Is this something Claude can already do well by itself? If a skill only tells Claude to use a tool it already has, it doesn't earn a place here.
 
 ## Per-skill specification
@@ -43,5 +43,5 @@ This is a public repo. Nothing committed to it — skill content, examples, docs
 ## Getting started
 
 1. Read `docs/PLAN.md` for the overall architecture and phase plan.
-2. Read `docs/AUTHORING.md` (once it exists — Phase 4) for skill-writing conventions and the trigger map.
+2. Read `docs/AUTHORING.md` for skill-writing conventions and the trigger map.
 3. Open an issue describing what you want to add or fix before doing the work, so scope and overlap can be discussed first.

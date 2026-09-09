@@ -41,7 +41,7 @@ The drafted or edited text itself, formatted per the user's preferences (or repo
 
 ## Bundled resources
 
-None beyond `SKILL.md` for this first version — the mapping from preference values to writing choices is short enough to keep inline. If this grows to cover many distinct formats with format-specific conventions, split `references/` by format at that point (see `docs/AUTHORING.md`, once it exists).
+None beyond `SKILL.md` for this first version — the mapping from preference values to writing choices is short enough to keep inline. If this grows to cover many distinct formats with format-specific conventions, split `references/` by format at that point (see `docs/AUTHORING.md`).
 
 ## Test cases
 

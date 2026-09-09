@@ -19,7 +19,7 @@ labels: skill-proposal
 
 ## Does an existing skill already cover this?
 
-<!-- Check the catalog in docs/PLAN.md Section 8 and the trigger map in docs/AUTHORING.md (once it exists) -->
+<!-- Check the catalog in docs/PLAN.md Section 8 and the trigger map in docs/AUTHORING.md -->
 
 ## Why this needs a skill, not just a good prompt
 
