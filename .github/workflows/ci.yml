@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  personal-data-scan:
+    name: Personal data scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if a real preferences file was committed
+        run: |
+          set -euo pipefail
+          # These filenames must only ever exist locally (see .gitignore).
+          # If git is tracking one, personalization has leaked into the public repo.
+          matches=$(git ls-files | grep -E '(^|/)(\.claude/preferences\.ya?ml|skills-preferences\.ya?ml)$' || true)
+          if [ -n "$matches" ]; then
+            echo "::error::A local preferences file is tracked by git — it must stay gitignored:"
+            echo "$matches"
+            exit 1
+          fi
+
+      - name: Flag committed absolute home directory paths
+        run: |
+          set -euo pipefail
+          matches=$(git grep -InE '/(home|Users)/[A-Za-z0-9_.-]+' -- . ':!*.git*' || true)
+          if [ -n "$matches" ]; then
+            echo "::warning::Possible absolute home directory path(s) committed — review before release:"
+            echo "$matches"
+          fi
+
+  skills-validate:
+    name: Validate skills
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate skill frontmatter and evals (no-op until skills/ exists)
+        run: |
+          set -euo pipefail
+          if [ ! -d skills ] || [ -z "$(ls -A skills 2>/dev/null)" ]; then
+            echo "No skills/ directory yet — nothing to validate."
+            exit 0
+          fi
+          if [ -f tools/validate_skills.py ]; then
+            python3 tools/validate_skills.py
+          else
+            echo "::error::skills/ exists but tools/validate_skills.py is missing."
+            exit 1
+          fi
+
+  markdown-lint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint markdown
+        uses: DavidAnson/markdownlint-cli2-action@v18
+        with:
+          globs: |
+            **/*.md
+            !docs/PLAN.md

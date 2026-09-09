@@ -1,0 +1,30 @@
+# Personal preferences files — never commit real user preferences.
+# These paths are how personalization stays out of this public repo.
+.claude/preferences.yaml
+.claude/preferences.yml
+skills-preferences.yaml
+skills-preferences.yml
+**/skills-preferences.yaml
+**/skills-preferences.yml
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Python (tooling scripts, Phase 4+)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Packaged skill bundles (build output, Phase 6+)
+/dist/
+*.skill
+
+# Local scratch
+.tmp/
+*.local

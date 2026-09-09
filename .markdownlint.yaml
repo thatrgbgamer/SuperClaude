@@ -1,0 +1,9 @@
+# Relaxed markdown lint config — content clarity matters more than strict style here.
+default: true
+MD013: false # line length
+MD033: false # allow inline HTML (e.g. badges, tables)
+MD041: false # first line doesn't have to be a top-level heading
+MD024:
+  siblings_only: true # allow repeated headings across different sections
+MD026:
+  punctuation: ".,;:" # allow trailing "!" — it's literally in the project name
