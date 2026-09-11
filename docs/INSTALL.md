@@ -39,14 +39,20 @@ This makes the skill available to anyone working in that project, version-contro
 
 ## Path 3: packaged `.skill` bundles
 
-For sharing a single skill as one file instead of a folder, or for install flows that expect an archive:
+For sharing a single skill as one file instead of a folder, or for install flows that expect an archive. A pre-built bundle for every skill already lives in `dist/` — download the one you want (e.g. `dist/writing-assistant.skill`) and unzip it into `~/.claude/skills/<name>/` or a project's `.claude/skills/<name>/`:
+
+```sh
+unzip dist/writing-assistant.skill -d ~/.claude/skills/
+```
+
+Each bundle is a zip archive containing everything the skill needs to run (`SKILL.md`, `README.md`, `references/`, `scripts/`, `assets/`) and excludes `evals/`, which is a repo development artifact, not something an installed skill needs.
+
+If you've changed a skill locally and want to rebuild its bundle:
 
 ```sh
 python3 tools/package_skill.py writing-assistant
 # -> dist/writing-assistant.skill
 ```
-
-This produces a zip archive (`.skill` extension) containing everything the skill needs to run (`SKILL.md`, `README.md`, `references/`, `scripts/`, `assets/`) and excludes `evals/`, which is a repo development artifact, not something an installed skill needs. Unzip it into `~/.claude/skills/<name>/` or a project's `.claude/skills/<name>/` to install it.
 
 ## Path 4: the whole collection as a plugin
 

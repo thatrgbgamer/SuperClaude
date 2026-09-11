@@ -21,9 +21,10 @@ __pycache__/
 .venv/
 venv/
 
-# Packaged skill bundles (build output, Phase 6+)
-/dist/
-*.skill
+# Note: dist/*.skill packaged bundles ARE committed intentionally, so
+# downloading a single skill doesn't require cloning the whole repo or
+# running tools/package_skill.py locally. Regenerate them with:
+#   for s in skills/*/; do python3 tools/package_skill.py "$(basename "$s")"; done
 
 # Local scratch
 .tmp/
