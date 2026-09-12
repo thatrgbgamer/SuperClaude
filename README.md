@@ -15,15 +15,15 @@ The preferences system and authoring tooling are built, and skills are being add
 **Want the whole collection?** In a Claude Code session:
 
 ```text
-/plugin marketplace add thatrgbgamer/SuperClaude
+/plugin marketplace add thatrgbgamer/SuperClaude-FountEngine
 /plugin install superclaude@superclaude
 ```
 
 **Or use the installer:**
 
 ```sh
-git clone https://github.com/thatrgbgamer/SuperClaude.git
-cd SuperClaude
+git clone https://github.com/thatrgbgamer/SuperClaude-FountEngine.git
+cd SuperClaude-FountEngine
 ./install.sh            # starter set — or --all, --list, --project, --uninstall
 ```
 

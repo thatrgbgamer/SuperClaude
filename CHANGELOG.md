@@ -23,6 +23,13 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - Installer: `./install.sh` (wrapping `tools/install.py`) installs, updates, lists and uninstalls skills into `~/.claude/skills` or a project directory. Tracks what it installed in a manifest so it never overwrites or deletes a skill directory it didn't create without `--force`. Stdlib only, no network calls.
 - `apps/fount/run.sh` launcher: serves the engine and opens a browser.
 
+- `tools/new_fount_game.py`: scaffolds a Fount game as its own standalone repository — engine vendored in, starter level, shell, editor, `run.sh`, README, MIT licence, and a git repo with a first commit. It also installs the `fount-gamedev` skill at the project's own `.claude/skills/`, so a Claude Code session opened on that repo knows the map format with SuperClaude nowhere present. `--vendor-only` adds Fount to an existing repo; `--update` refreshes the vendored engine and skill without touching the game's own content. Local only — it prints the git remote steps rather than pushing anything.
+
+### Changed
+
+- The repository is now `thatrgbgamer/SuperClaude-FountEngine`; clone URLs, the plugin marketplace reference and the plugin `homepage` point at the canonical name rather than relying on GitHub's rename redirect.
+- The editor's `MAPS` array now uses the same `{ file, label }` shape as `index.html`'s. They had drifted into two different shapes for the same concept, which meant adding a level was a subtly different edit in each file.
+
 ### Fixed
 
 - **Ragdolls exploded across the level.** `solveCollisions` rewrote each particle's implied velocity *inside* the constraint iteration loop, so every constraint correction fed back in as fresh speed and compounded six times per step. Limbs reached 120 m/s and stretched 51m, drawing as screen-filling polygons that made it look like the camera was stuck. Collision is now a positional correction inside the loop, with friction and into-surface damping applied once afterward.

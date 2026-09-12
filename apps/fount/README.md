@@ -90,6 +90,38 @@ Full schema documentation, for humans and for Claude:
 - `skills/fount-gamedev/references/entities.md` — every classname, keyvalue, input and output
 - `skills/fount-gamedev/references/custom-behaviors.md` — `defineEntity` and engine services
 
+## Starting your own game repo
+
+`apps/fount/` is the engine plus its demo maps. A real game wants its own
+repository, which the scaffolder sets up:
+
+```sh
+python3 tools/new_fount_game.py ../my-game --name "My Game"
+cd ../my-game && ./run.sh
+```
+
+You get a self-sufficient project: the engine vendored in (it has no
+dependencies, so a copy beats a submodule), a starter level, the game shell and
+editor, `run.sh`, a README, and a git repo with a first commit. Nothing is
+pushed anywhere — the script prints the remote steps for you to run.
+
+**The part that matters for Claude Code**: it also installs the `fount-gamedev`
+skill at `.claude/skills/fount-gamedev/` inside the new project. A Claude Code
+session opened on that repo — locally, or by attaching the GitHub repo on the
+web — discovers it as a project skill automatically, so Claude already knows the
+map format and entity library without SuperClaude being present at all.
+
+Other modes:
+
+```sh
+python3 tools/new_fount_game.py ../existing-repo --vendor-only  # add Fount to a project you already have
+python3 tools/new_fount_game.py ../my-game --update             # refresh the vendored engine + skill
+python3 tools/new_fount_game.py ../my-game --dry-run            # show what it would write
+```
+
+`--update` only touches `engine/` and `.claude/skills/fount-gamedev/`. Your
+`game/` content, `index.html` and README are never overwritten.
+
 ## Included maps
 
 - **`dm_crucible`** — walled arena with a catwalk, ramps, a raised platform, physics crates, five guards, and a trigger-operated vault door.

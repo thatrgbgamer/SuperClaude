@@ -99,7 +99,12 @@ import { registeredClassnames } from '../engine/entity.js';
 import '../engine/entities.js';
 import { add, sub, mul, norm, anglesToForward, anglesToRight, clamp } from '../engine/math.js';
 
-const MAPS = ['game/maps/dm_crucible.json', 'game/maps/test_playground.json'];
+// Same shape as the MAPS array in ../index.html, so adding a level means the
+// same edit in both places.
+const MAPS = [
+  { file: 'game/maps/dm_crucible.json', label: 'dm_crucible' },
+  { file: 'game/maps/test_playground.json', label: 'test_playground' },
+];
 
 const canvas = document.getElementById('view');
 const renderer = new Renderer(canvas);
@@ -530,7 +535,7 @@ function drawEntityGizmos() {
 const mapSelect = document.getElementById('map-select');
 for (const m of MAPS) {
   const o = document.createElement('option');
-  o.value = m; o.textContent = m.split('/').pop();
+  o.value = m.file; o.textContent = m.label || m.file.split('/').pop();
   mapSelect.appendChild(o);
 }
 

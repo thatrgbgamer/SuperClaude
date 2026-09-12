@@ -7,8 +7,8 @@ You don't need all of them. Pick what's useful; each skill works completely on i
 ## Path 0: the installer (easiest)
 
 ```sh
-git clone https://github.com/thatrgbgamer/SuperClaude.git
-cd SuperClaude
+git clone https://github.com/thatrgbgamer/SuperClaude-FountEngine.git
+cd SuperClaude-FountEngine
 ./install.sh
 ```
 
@@ -57,7 +57,7 @@ If a team wants everyone working in a given repo to have the same skill, check t
 
 ```sh
 mkdir -p .claude/skills
-cp -r /path/to/SuperClaude/skills/writing-assistant .claude/skills/
+cp -r /path/to/SuperClaude-FountEngine/skills/writing-assistant .claude/skills/
 ```
 
 This makes the skill available to anyone working in that project, version-controlled alongside the code it's used with. Combine with a project-level `.claude/preferences.yaml` (see `docs/PREFERENCES.md`) if the team wants shared conventions on top of individual voice preferences.
@@ -86,7 +86,7 @@ This repo is a Claude Code plugin marketplace with one plugin — `superclaude` 
 In a Claude Code session:
 
 ```text
-/plugin marketplace add thatrgbgamer/SuperClaude
+/plugin marketplace add thatrgbgamer/SuperClaude-FountEngine
 /plugin install superclaude@superclaude
 ```
 

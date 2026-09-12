@@ -28,6 +28,28 @@ Then open `http://localhost:8099/` to play, or `http://localhost:8099/editor/ind
 
 The loop is: edit a file → refresh the browser. No build step, no compile, no asset pipeline.
 
+## A game of its own, in its own repo
+
+`apps/fount/game/` holds the engine's demo maps. When someone is building an
+actual game rather than tweaking the demos, give it its own repository:
+
+```sh
+python3 tools/new_fount_game.py ../their-game --name "Their Game"
+```
+
+That vendors the engine (no dependencies, so a copy is simpler and more robust
+than a submodule), adds a starter level, shell, editor and `run.sh`, and makes a
+git repo with a first commit. It pushes nothing; it prints the remote steps.
+
+It also installs this skill at `.claude/skills/fount-gamedev/` inside the new
+project, which is what carries Fount knowledge across: a Claude Code session
+opened on that repo finds it as a project skill and already knows the map format
+and entity library, with SuperClaude nowhere in sight.
+
+Use `--vendor-only` to add Fount to a repo that already exists, and `--update`
+to refresh a vendored engine later (it touches only `engine/` and the skill,
+never the game's own content).
+
 ## Where things live
 
 | Path | What |
