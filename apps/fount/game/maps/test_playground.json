@@ -1,0 +1,83 @@
+{
+  "name": "test_playground",
+  "sky": {
+    "color": [0.52, 0.60, 0.70],
+    "sunDir": [-0.35, -0.85, -0.4],
+    "sunColor": [1.1, 1.02, 0.9],
+    "ambient": [0.34, 0.36, 0.42],
+    "fogDensity": 0.008
+  },
+
+  "brushes": [
+    { "type": "box", "min": [-24, -1, -24], "max": [24, 0, 24], "material": "grid", "uvScale": 0.5 },
+
+    { "type": "box", "min": [-25, 0, -25], "max": [25, 6, -24], "material": "concrete" },
+    { "type": "box", "min": [-25, 0, 24], "max": [25, 6, 25], "material": "concrete" },
+    { "type": "box", "min": [-25, 0, -25], "max": [-24, 6, 25], "material": "concrete" },
+    { "type": "box", "min": [24, 0, -25], "max": [25, 6, 25], "material": "concrete" },
+
+    { "type": "ramp", "min": [-6, 0, -14], "max": [-2, 2.5, -8], "material": "metal", "axis": "z", "dir": -1, "low": 0 },
+    { "type": "ramp", "min": [2, 0, -14], "max": [6, 4.5, -6], "material": "metal", "axis": "z", "dir": -1, "low": 0 },
+
+    { "type": "box", "min": [-8, 0, 6], "max": [-6, 0.4, 8], "material": "panel" },
+    { "type": "box", "min": [-8, 0, 9], "max": [-6, 0.8, 11], "material": "panel" },
+    { "type": "box", "min": [-8, 0, 12], "max": [-6, 1.2, 14], "material": "panel" },
+    { "type": "box", "min": [-8, 0, 15], "max": [-6, 1.6, 17], "material": "panel" },
+
+    { "type": "cylinder", "min": [6, 0, 6], "max": [10, 5, 10], "sides": 12, "material": "brick" },
+
+    { "type": "wedge", "min": [12, 0, -10], "max": [18, 4, -4], "corner": "nx-pz", "material": "concrete" },
+
+    { "type": "box", "name": "trig_launch", "trigger": true, "min": [-3, 0, 2], "max": [3, 3, 8] }
+  ],
+
+  "entities": [
+    { "classname": "info_player_start", "origin": [0, 0.2, 18], "angles": [0, 90, 0] },
+
+    { "classname": "light", "origin": [0, 5, 0], "color": [1.0, 0.9, 0.7], "radius": 20, "brightness": 1.2 },
+    { "classname": "light", "origin": [-14, 4, 12], "color": [0.6, 0.8, 1.0], "radius": 14 },
+    { "classname": "light", "origin": [14, 4, -12], "color": [1.0, 0.6, 0.45], "radius": 14 },
+
+    { "classname": "point_ragdoll", "name": "body_dropper", "origin": [0, 6, -4], "angles": [0, 90, 0],
+      "velocity": [3, 1, 0] },
+
+    { "classname": "logic_timer", "name": "drop_timer", "interval": 3.5, "startEnabled": true,
+      "connections": [
+        { "output": "OnTimer", "target": "body_dropper", "input": "Spawn" }
+      ] },
+
+    { "classname": "trigger_multiple", "name": "trig_launch", "wait": 1.0,
+      "connections": [
+        { "output": "OnStartTouch", "target": "launch_blast", "input": "Explode" }
+      ] },
+
+    { "classname": "env_explosion", "name": "launch_blast", "origin": [0, 0.5, 5],
+      "radius": 8, "force": 22, "damage": 0 },
+
+    { "classname": "func_platform", "name": "lift", "min": [-14, 0, -4], "max": [-10, 0.4, 0],
+      "moveDir": [0, 1, 0], "distance": 4.5, "speed": 1.8, "wait": 2.0, "material": "metal" },
+
+    { "classname": "func_door", "name": "test_door", "min": [16, 0, 6], "max": [16.4, 4, 12],
+      "moveDir": [0, 1, 0], "distance": 3.9, "speed": 2.5, "material": "metal" },
+
+    { "classname": "logic_relay", "name": "door_relay",
+      "connections": [
+        { "output": "OnTrigger", "target": "test_door", "input": "Toggle" }
+      ] },
+
+    { "classname": "npc_grunt", "name": "dummy_a", "origin": [8, 0.1, -8], "angles": [0, 180, 0],
+      "health": 40, "speed": 0, "sightRange": 0, "tint": [0.9, 0.9, 0.95] },
+    { "classname": "npc_grunt", "name": "dummy_b", "origin": [10, 0.1, -8], "angles": [0, 180, 0],
+      "health": 40, "speed": 0, "sightRange": 0, "tint": [0.9, 0.85, 0.8] },
+    { "classname": "npc_grunt", "name": "dummy_c", "origin": [12, 0.1, -8], "angles": [0, 180, 0],
+      "health": 40, "speed": 0, "sightRange": 0, "tint": [0.85, 0.9, 0.85] },
+
+    { "classname": "prop_physics", "origin": [-2, 3, -2], "size": [0.35, 0.35, 0.35], "material": "panel" },
+    { "classname": "prop_physics", "origin": [-1.5, 4, -2.2], "size": [0.35, 0.35, 0.35], "material": "brick" },
+    { "classname": "prop_physics", "origin": [-2.4, 5, -1.8], "size": [0.35, 0.35, 0.35], "material": "metal" },
+    { "classname": "prop_physics", "origin": [-2, 6, -2], "size": [0.35, 0.35, 0.35], "material": "panel" },
+
+    { "classname": "item_health", "origin": [-18, 0.1, -18], "amount": 50 },
+    { "classname": "item_ammo", "origin": [18, 0.1, 18], "amount": 80 }
+  ]
+}

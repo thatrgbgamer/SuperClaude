@@ -1,0 +1,92 @@
+{
+  "name": "dm_crucible",
+  "sky": {
+    "color": [0.30, 0.38, 0.50],
+    "sunDir": [-0.45, -0.78, -0.42],
+    "sunColor": [1.05, 0.97, 0.84],
+    "ambient": [0.26, 0.29, 0.36],
+    "fogColor": [0.30, 0.38, 0.50],
+    "fogDensity": 0.011
+  },
+
+  "brushes": [
+    { "type": "box", "min": [-20, -1, -20], "max": [20, 0, 20], "material": "floor_tile", "uvScale": 0.45 },
+
+    { "type": "box", "min": [-21, 0, -21], "max": [21, 9, -20], "material": "concrete" },
+    { "type": "box", "min": [-21, 0, 20], "max": [21, 9, 21], "material": "concrete" },
+    { "type": "box", "min": [-21, 0, -21], "max": [-20, 9, 21], "material": "concrete" },
+    { "type": "box", "min": [20, 0, -21], "max": [21, 9, 21], "material": "concrete" },
+
+    { "type": "box", "min": [8, 0, 8], "max": [18, 3, 18], "material": "concrete" },
+    { "type": "ramp", "min": [10, 0, 4], "max": [16, 3, 8], "material": "metal", "axis": "z", "dir": 1, "low": 0 },
+    { "type": "box", "min": [8, 3, 8], "max": [18, 3.4, 8.4], "material": "metal" },
+
+    { "type": "box", "min": [-18, 0, -18], "max": [-8, 2, -8], "material": "brick" },
+    { "type": "ramp", "min": [-16, 0, -8], "max": [-10, 2, -4], "material": "metal", "axis": "z", "dir": -1, "low": 0 },
+
+    { "type": "box", "min": [-4, 4.6, -14], "max": [4, 5, 14], "material": "grid" },
+    { "type": "box", "min": [-4, 5, -14], "max": [-3.6, 5.9, 14], "material": "metal" },
+    { "type": "box", "min": [3.6, 5, -14], "max": [4, 5.9, 14], "material": "metal" },
+    { "type": "ramp", "min": [-4, 0, 14], "max": [4, 4.6, 19], "material": "metal", "axis": "z", "dir": -1, "low": 0 },
+
+    { "type": "cylinder", "min": [-14, 0, 6], "max": [-10, 6, 10], "sides": 10, "material": "concrete" },
+    { "type": "cylinder", "min": [10, 0, -12], "max": [14, 6, -8], "sides": 10, "material": "concrete" },
+
+    { "type": "box", "min": [-2, 0, -6], "max": [2, 1.2, -2], "material": "panel" },
+    { "type": "box", "min": [5, 0, 2], "max": [8, 1.6, 5], "material": "panel" },
+    { "type": "box", "min": [-9, 0, 12], "max": [-6, 1.6, 15], "material": "panel" },
+    { "type": "wedge", "min": [14, 0, -18], "max": [19, 3, -13], "corner": "nx-pz", "material": "brick" },
+
+    { "type": "box", "min": [-20, 0, -2.4], "max": [-16, 4.4, -2], "material": "brick" },
+    { "type": "box", "min": [-20, 0, 4], "max": [-16, 4.4, 4.4], "material": "brick" },
+    { "type": "box", "min": [-20, 4, -2.4], "max": [-16, 4.4, 4.4], "material": "concrete" },
+
+    { "type": "box", "name": "trig_vault", "trigger": true, "min": [-15.5, 0, -2], "max": [-11, 4, 4] }
+  ],
+
+  "entities": [
+    { "classname": "info_player_start", "origin": [-10, 0.2, 16], "angles": [0, 58, 0] },
+
+    { "classname": "light", "origin": [0, 6, 0], "color": [1.0, 0.86, 0.62], "radius": 16, "brightness": 1.1 },
+    { "classname": "light", "origin": [13, 5, 13], "color": [0.7, 0.85, 1.0], "radius": 13 },
+    { "classname": "light", "origin": [-13, 4, -13], "color": [1.0, 0.72, 0.5], "radius": 13 },
+    { "classname": "light", "origin": [-17, 3, 1], "color": [0.55, 1.0, 0.75], "radius": 9, "name": "vault_light" },
+
+    { "classname": "npc_grunt", "name": "grunt_a", "origin": [12, 3.1, 12], "angles": [0, 225, 0],
+      "health": 40, "speed": 3.2, "tint": [0.95, 0.85, 0.8] },
+    { "classname": "npc_grunt", "name": "grunt_b", "origin": [-12, 2.1, -12], "angles": [0, 45, 0],
+      "health": 40, "speed": 3.6, "tint": [0.85, 0.9, 1.0] },
+    { "classname": "npc_grunt", "name": "grunt_c", "origin": [-6, 0.1, 6], "angles": [0, 0, 0],
+      "health": 40, "speed": 4.0, "tint": [1.0, 0.9, 0.75] },
+    { "classname": "npc_grunt", "name": "grunt_d", "origin": [7, 0.1, -9], "angles": [0, 135, 0],
+      "health": 60, "speed": 2.8, "tint": [0.8, 0.82, 0.9], "damage": 12 },
+    { "classname": "npc_grunt", "name": "grunt_e", "origin": [16, 0.1, 2], "angles": [0, 180, 0],
+      "health": 40, "speed": 3.4, "tint": [0.95, 0.8, 0.85] },
+
+    { "classname": "prop_physics", "origin": [1, 2.0, 3], "size": [0.35, 0.35, 0.35], "material": "panel" },
+    { "classname": "prop_physics", "origin": [1.4, 3.0, 3.3], "size": [0.35, 0.35, 0.35], "material": "panel" },
+    { "classname": "prop_physics", "origin": [0.7, 4.0, 2.7], "size": [0.35, 0.35, 0.35], "material": "brick" },
+    { "classname": "prop_physics", "origin": [-7, 1.4, 13], "size": [0.4, 0.4, 0.4], "material": "metal" },
+    { "classname": "prop_physics", "origin": [-7.6, 2.4, 13.4], "size": [0.4, 0.4, 0.4], "material": "metal" },
+
+    { "classname": "item_health", "origin": [-17, 0.1, 1], "amount": 40, "name": "vault_medkit" },
+    { "classname": "item_health", "origin": [13, 3.1, 16], "amount": 25 },
+    { "classname": "item_ammo", "origin": [-12, 2.1, -16], "amount": 60 },
+    { "classname": "item_ammo", "origin": [0, 5.1, 0], "amount": 40 },
+
+    { "classname": "func_door", "name": "vault_door",
+      "min": [-16.4, 0, -2], "max": [-16, 4, 4],
+      "moveDir": [0, 1, 0], "distance": 3.9, "speed": 3.0, "material": "metal", "tint": [0.8, 0.85, 0.9] },
+
+    { "classname": "trigger_multiple", "name": "trig_vault", "wait": 0.4,
+      "connections": [
+        { "output": "OnStartTouch", "target": "vault_door", "input": "Open" },
+        { "output": "OnEndTouch", "target": "vault_door", "input": "Close", "delay": 2.0 }
+      ] },
+
+    { "classname": "logic_counter", "name": "kill_counter", "threshold": 5,
+      "connections": [
+        { "output": "OnThreshold", "target": "vault_light", "input": "SetBrightness", "param": "2.5" }
+      ] }
+  ]
+}

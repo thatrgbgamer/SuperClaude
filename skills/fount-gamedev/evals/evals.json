@@ -1,0 +1,45 @@
+{
+  "skill": "fount-gamedev",
+  "prompts": [
+    {
+      "type": "positive",
+      "prompt": "Add a new Fount level: a walled courtyard with a raised sniper tower you can ramp up to, and four guards.",
+      "expected": "Fires this skill. Reads references/map-format.md for brush and scale conventions, authors a new map JSON under apps/fount/game/maps/, places info_player_start on clear floor, sets ambient high enough to read, registers the map in the MAPS array of both index.html and editor/index.html, and validates the JSON parses."
+    },
+    {
+      "type": "positive",
+      "prompt": "In dm_crucible, make an explosion go off when the last guard dies.",
+      "expected": "Fires this skill. Wires it declaratively with the IO system rather than writing JS: each npc_grunt's OnDeath connected to a logic_counter's Add input, with the counter's OnThreshold firing Explode on an env_explosion. Does not invent keyvalues not in references/entities.md."
+    },
+    {
+      "type": "positive",
+      "prompt": "My trigger_multiple never fires when I walk into it. What's wrong?",
+      "expected": "Fires this skill. Identifies the documented cause first — a trigger_multiple has no bounds of its own and needs a brush with \"trigger\": true sharing the same name — and checks that before suspecting the engine."
+    },
+    {
+      "type": "positive",
+      "prompt": "Add a turret enemy to Fount. There's no class for it yet.",
+      "expected": "Fires this skill. Reads references/custom-behaviors.md, adds a defineEntity module under apps/fount/game/scripts/, reads tuning values through entity.get() so the map can configure it, does a line-of-sight trace before firing, passes shadowPass through its draw calls, and fires an output so level logic can hook it."
+    },
+    {
+      "type": "negative",
+      "prompt": "Build me a first-person shooter in Unity with ragdoll physics.",
+      "expected": "Does not fire this skill. A different engine entirely — nothing about Fount's map format, entity classes, or IO system applies to Unity."
+    },
+    {
+      "type": "negative",
+      "prompt": "There's shadow acne on sloped surfaces — fix the depth bias in the fragment shader.",
+      "expected": "Does not fire this skill. Engine internals under apps/fount/engine/ are ordinary code work on this repo, not level authoring."
+    },
+    {
+      "type": "negative",
+      "prompt": "Wire up the Claude API so the enemies generate unique taunt lines while you play.",
+      "expected": "Does not fire this skill as a build request. This contradicts the engine's premise that a finished game runs with zero API calls and no key; the right response is to push back and bake authored taunt lines into the content instead."
+    },
+    {
+      "type": "negative",
+      "prompt": "What are the principles of good multiplayer map design?",
+      "expected": "Does not fire this skill. General design discussion with no artifact to produce — answer directly."
+    }
+  ]
+}

@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fount Editor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🧱</text></svg>">
+<style>
+  :root { --ink:#e8ecf2; --dim:#8b97a8; --accent:#6fd3c7; --warn:#e8b44a; --panel:#12171f; --line:rgba(255,255,255,0.09); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#0b0e13; color:var(--ink);
+    font:12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  #app { display:grid; grid-template-columns: 260px 1fr 300px; height:100%; }
+  .panel { background:var(--panel); overflow-y:auto; border-right:1px solid var(--line); }
+  .panel:last-child { border-right:none; border-left:1px solid var(--line); }
+  .panel h2 { font-size:10px; text-transform:uppercase; letter-spacing:1.3px; color:var(--dim);
+    margin:0; padding:12px 12px 6px; position:sticky; top:0; background:var(--panel); }
+  #viewport { position:relative; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #hint { position:absolute; left:12px; bottom:10px; color:var(--dim); font-size:11px;
+    background:rgba(8,11,15,0.75); padding:6px 10px; border-radius:6px; pointer-events:none; line-height:1.7; }
+  #status { position:absolute; right:12px; top:10px; color:var(--accent); font-size:11px;
+    background:rgba(8,11,15,0.75); padding:6px 10px; border-radius:6px; pointer-events:none; }
+  .item { padding:5px 12px; cursor:pointer; border-left:2px solid transparent; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .item:hover { background:rgba(255,255,255,0.05); }
+  .item.sel { background:rgba(111,211,199,0.14); border-left-color:var(--accent); color:#fff; }
+  .item small { color:var(--dim); }
+  .row { display:flex; gap:6px; padding:8px 12px; flex-wrap:wrap; }
+  button { font:inherit; background:#1b222d; color:var(--ink); border:1px solid var(--line);
+    border-radius:5px; padding:5px 9px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:#07120f; border-color:transparent; font-weight:700; }
+  button.warn { border-color:var(--warn); color:var(--warn); }
+  label { display:block; padding:4px 12px; color:var(--dim); }
+  input, select, textarea { font:inherit; width:100%; background:#0d1218; color:var(--ink);
+    border:1px solid var(--line); border-radius:4px; padding:4px 6px; }
+  textarea { min-height:190px; resize:vertical; white-space:pre; }
+  .vec { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:0 12px 6px; }
+  .empty { padding:12px; color:var(--dim); }
+  #toast { position:absolute; left:50%; top:16px; transform:translateX(-50%); background:#17222c;
+    border:1px solid var(--accent); color:var(--accent); padding:7px 14px; border-radius:6px;
+    opacity:0; transition:opacity .2s; pointer-events:none; }
+  #toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <h2>Brushes</h2>
+    <div class="row">
+      <button id="add-box">+ Box</button>
+      <button id="add-ramp">+ Ramp</button>
+      <button id="add-cyl">+ Cylinder</button>
+    </div>
+    <div id="brush-list"></div>
+    <h2>Entities</h2>
+    <div class="row">
+      <select id="ent-class"></select>
+    </div>
+    <div class="row"><button id="add-ent">+ Add entity at crosshair</button></div>
+    <div id="entity-list"></div>
+  </div>
+
+  <div id="viewport">
+    <canvas id="view"></canvas>
+    <div id="status">—</div>
+    <div id="toast"></div>
+    <div id="hint">
+      <b>RMB drag</b> or <b>hold Z</b> — look &nbsp; <b>WASD</b> move &nbsp; <b>Q/E</b> down/up<br>
+      <b>LMB</b> select &nbsp; <b>Shift+scroll</b> fly speed &nbsp; <b>Del</b> delete &nbsp; <b>Ctrl+D</b> duplicate
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Properties</h2>
+    <div id="props"><div class="empty">Nothing selected.</div></div>
+    <h2>Map</h2>
+    <label>Map file</label>
+    <div class="row" style="padding-top:0">
+      <select id="map-select" style="flex:1"></select>
+      <button id="reload">Load</button>
+    </div>
+    <div class="row">
+      <button class="primary" id="copy">Copy JSON</button>
+      <button id="download">Download</button>
+    </div>
+    <div class="row"><button id="playtest">▶ Playtest this map</button></div>
+    <label>Paste map JSON to load</label>
+    <div class="row" style="padding-top:0"><textarea id="paste" placeholder="Paste a full map document here, then press Apply."></textarea></div>
+    <div class="row"><button id="apply-paste">Apply pasted JSON</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { Renderer } from '../engine/render.js';
+import { buildMap, loadMap, brushToPlanes } from '../engine/map.js';
+import { registeredClassnames } from '../engine/entity.js';
+import '../engine/entities.js';
+import { add, sub, mul, norm, anglesToForward, anglesToRight, clamp } from '../engine/math.js';
+
+const MAPS = ['game/maps/dm_crucible.json', 'game/maps/test_playground.json'];
+
+const canvas = document.getElementById('view');
+const renderer = new Renderer(canvas);
+
+const state = {
+  doc: null,
+  built: null,
+  selection: null,      // { kind: 'brush'|'entity', index }
+  camera: { position: [0, 6, 26], angles: [12, 90, 0] },
+  flySpeed: 9,
+  keys: new Set(),
+  looking: false,
+};
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 1400);
+}
+
+// ---------------------------------------------------------------------------
+// Map rebuild. Small maps rebuild fast enough to do it on every edit, which
+// keeps the viewport honest — what you see is the map document, not a cache.
+// ---------------------------------------------------------------------------
+
+function rebuild() {
+  state.built = buildMap(state.doc);
+  renderer.setMaterials(state.built.materials);
+  renderer.setWorldMesh(state.built.meshData);
+  renderer.computeLightMatrix(state.built.env.sunDir, state.built.bounds);
+  refreshLists();
+  document.getElementById('status').textContent =
+    `${state.doc.name} · ${(state.doc.brushes || []).length} brushes · ${(state.doc.entities || []).length} entities`;
+}
+
+function brushBounds(brush) {
+  const planes = brushToPlanes(brush);
+  if (brush.min && brush.max) return { min: brush.min, max: brush.max };
+  void planes;
+  return { min: [0, 0, 0], max: [1, 1, 1] };
+}
+
+function refreshLists() {
+  const bl = document.getElementById('brush-list');
+  bl.innerHTML = '';
+  (state.doc.brushes || []).forEach((b, i) => {
+    const el = document.createElement('div');
+    el.className = 'item' + (state.selection && state.selection.kind === 'brush' && state.selection.index === i ? ' sel' : '');
+    el.innerHTML = `${b.type || 'box'} <small>${b.material || '—'}${b.trigger ? ' · trigger' : ''}</small>`;
+    el.onclick = () => select('brush', i);
+    bl.appendChild(el);
+  });
+  if (!(state.doc.brushes || []).length) bl.innerHTML = '<div class="empty">No brushes.</div>';
+
+  const el2 = document.getElementById('entity-list');
+  el2.innerHTML = '';
+  (state.doc.entities || []).forEach((e, i) => {
+    const row = document.createElement('div');
+    row.className = 'item' + (state.selection && state.selection.kind === 'entity' && state.selection.index === i ? ' sel' : '');
+    row.innerHTML = `${e.classname} <small>${e.name || ''}</small>`;
+    row.onclick = () => select('entity', i);
+    el2.appendChild(row);
+  });
+  if (!(state.doc.entities || []).length) el2.innerHTML = '<div class="empty">No entities.</div>';
+}
+
+function select(kind, index) {
+  state.selection = { kind, index };
+  refreshLists();
+  refreshProps();
+}
+
+function vecEditor(label, getter, setter) {
+  const wrap = document.createElement('div');
+  const lab = document.createElement('label');
+  lab.textContent = label;
+  wrap.appendChild(lab);
+  const grid = document.createElement('div');
+  grid.className = 'vec';
+  for (let i = 0; i < 3; i++) {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = '0.5';
+    input.value = getter()[i];
+    input.oninput = () => {
+      const v = [...getter()];
+      v[i] = parseFloat(input.value) || 0;
+      setter(v);
+      rebuild();
+    };
+    grid.appendChild(input);
+  }
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+function refreshProps() {
+  const host = document.getElementById('props');
+  host.innerHTML = '';
+  const sel = state.selection;
+  if (!sel) { host.innerHTML = '<div class="empty">Nothing selected.</div>'; return; }
+
+  const obj = sel.kind === 'brush' ? state.doc.brushes[sel.index] : state.doc.entities[sel.index];
+  if (!obj) { state.selection = null; host.innerHTML = '<div class="empty">Nothing selected.</div>'; return; }
+
+  if (sel.kind === 'brush') {
+    const typeLabel = document.createElement('label');
+    typeLabel.textContent = 'type';
+    host.appendChild(typeLabel);
+    const typeSel = document.createElement('select');
+    for (const t of ['box', 'ramp', 'wedge', 'cylinder']) {
+      const o = document.createElement('option');
+      o.value = t; o.textContent = t;
+      if ((obj.type || 'box') === t) o.selected = true;
+      typeSel.appendChild(o);
+    }
+    typeSel.onchange = () => { obj.type = typeSel.value; rebuild(); refreshProps(); };
+    const wrapT = document.createElement('div'); wrapT.className = 'vec';
+    wrapT.style.gridTemplateColumns = '1fr'; wrapT.appendChild(typeSel);
+    host.appendChild(wrapT);
+
+    host.appendChild(vecEditor('min', () => obj.min || [0, 0, 0], (v) => { obj.min = v; }));
+    host.appendChild(vecEditor('max', () => obj.max || [1, 1, 1], (v) => { obj.max = v; }));
+
+    const matLabel = document.createElement('label');
+    matLabel.textContent = 'material';
+    host.appendChild(matLabel);
+    const matSel = document.createElement('select');
+    for (const m of state.built.materials) {
+      const o = document.createElement('option');
+      o.value = m.name; o.textContent = m.name;
+      if (obj.material === m.name) o.selected = true;
+      matSel.appendChild(o);
+    }
+    matSel.onchange = () => { obj.material = matSel.value; rebuild(); };
+    const wrapM = document.createElement('div'); wrapM.className = 'vec';
+    wrapM.style.gridTemplateColumns = '1fr'; wrapM.appendChild(matSel);
+    host.appendChild(wrapM);
+  }
+
+  // Raw JSON is always available, because the map document is the real source
+  // of truth — the form fields above are a convenience, not a schema lock-in.
+  const jsonLabel = document.createElement('label');
+  jsonLabel.textContent = sel.kind === 'brush' ? 'brush JSON' : 'entity JSON (keyvalues + connections)';
+  host.appendChild(jsonLabel);
+  const area = document.createElement('textarea');
+  area.value = JSON.stringify(obj, null, 2);
+  area.spellcheck = false;
+  const wrapJ = document.createElement('div'); wrapJ.className = 'row'; wrapJ.style.paddingTop = '0';
+  wrapJ.appendChild(area);
+  host.appendChild(wrapJ);
+
+  const applyRow = document.createElement('div');
+  applyRow.className = 'row';
+  const applyBtn = document.createElement('button');
+  applyBtn.textContent = 'Apply JSON';
+  applyBtn.onclick = () => {
+    try {
+      const parsed = JSON.parse(area.value);
+      if (sel.kind === 'brush') state.doc.brushes[sel.index] = parsed;
+      else state.doc.entities[sel.index] = parsed;
+      rebuild(); refreshProps(); toast('Applied');
+    } catch (err) { toast('Invalid JSON'); }
+  };
+  const delBtn = document.createElement('button');
+  delBtn.className = 'warn';
+  delBtn.textContent = 'Delete';
+  delBtn.onclick = () => deleteSelection();
+  applyRow.appendChild(applyBtn);
+  applyRow.appendChild(delBtn);
+  host.appendChild(applyRow);
+}
+
+function deleteSelection() {
+  const sel = state.selection;
+  if (!sel) return;
+  const list = sel.kind === 'brush' ? state.doc.brushes : state.doc.entities;
+  list.splice(sel.index, 1);
+  state.selection = null;
+  rebuild();
+  refreshProps();
+  toast('Deleted');
+}
+
+function duplicateSelection() {
+  const sel = state.selection;
+  if (!sel) return;
+  const list = sel.kind === 'brush' ? state.doc.brushes : state.doc.entities;
+  const copy = JSON.parse(JSON.stringify(list[sel.index]));
+  if (copy.min && copy.max) {
+    copy.min = [copy.min[0] + 2, copy.min[1], copy.min[2]];
+    copy.max = [copy.max[0] + 2, copy.max[1], copy.max[2]];
+  } else if (copy.origin) {
+    copy.origin = [copy.origin[0] + 2, copy.origin[1], copy.origin[2]];
+  }
+  if (copy.name) copy.name = copy.name + '_copy';
+  list.push(copy);
+  select(sel.kind, list.length - 1);
+  rebuild();
+  toast('Duplicated');
+}
+
+// ---------------------------------------------------------------------------
+// Viewport interaction
+// ---------------------------------------------------------------------------
+
+function aimPoint(distance = 8) {
+  const fwd = anglesToForward(state.camera.angles);
+  const origin = state.camera.position;
+  if (state.built) {
+    const trace = state.built.collision.traceRay(origin, add(origin, mul(fwd, 200)));
+    if (trace.hit) return trace.endPos;
+  }
+  return add(origin, mul(fwd, distance));
+}
+
+const snap = (v, grid = 1) => Math.round(v / grid) * grid;
+
+function addBrush(type) {
+  const p = aimPoint().map((n) => snap(n));
+  const brush = type === 'cylinder'
+    ? { type: 'cylinder', min: [p[0] - 2, p[1], p[2] - 2], max: [p[0] + 2, p[1] + 4, p[2] + 2], sides: 10, material: 'concrete' }
+    : type === 'ramp'
+      ? { type: 'ramp', min: [p[0] - 2, p[1], p[2] - 2], max: [p[0] + 2, p[1] + 2, p[2] + 2], axis: 'z', dir: 1, low: p[1], material: 'metal' }
+      : { type: 'box', min: [p[0] - 2, p[1], p[2] - 2], max: [p[0] + 2, p[1] + 2, p[2] + 2], material: 'concrete' };
+  state.doc.brushes = state.doc.brushes || [];
+  state.doc.brushes.push(brush);
+  select('brush', state.doc.brushes.length - 1);
+  rebuild();
+}
+
+function addEntity() {
+  const classname = document.getElementById('ent-class').value;
+  const p = aimPoint().map((n) => +n.toFixed(2));
+  const ent = { classname, origin: p, angles: [0, 0, 0] };
+  if (classname === 'func_door' || classname === 'func_platform') {
+    ent.min = [p[0] - 1, p[1], p[2] - 1];
+    ent.max = [p[0] + 1, p[1] + 3, p[2] + 1];
+    ent.moveDir = [0, 1, 0];
+    ent.distance = 2.9;
+    ent.name = classname + '_' + ((state.doc.entities || []).length + 1);
+    delete ent.origin;
+  }
+  state.doc.entities = state.doc.entities || [];
+  state.doc.entities.push(ent);
+  select('entity', state.doc.entities.length - 1);
+  rebuild();
+}
+
+// Pick by ray against brush AABBs and entity positions — good enough for
+// selection, and it needs no extra spatial structure.
+function pickAt(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const ndcY = 1 - ((clientY - rect.top) / rect.height) * 2;
+
+  const fwd = anglesToForward(state.camera.angles);
+  const right = anglesToRight(state.camera.angles);
+  const up = norm([
+    right[1] * fwd[2] - right[2] * fwd[1],
+    right[2] * fwd[0] - right[0] * fwd[2],
+    right[0] * fwd[1] - right[1] * fwd[0],
+  ]);
+  const aspect = rect.width / rect.height;
+  const tanHalf = Math.tan((75 * Math.PI / 180) / 2);
+  const dir = norm(add(add(fwd, mul(right, ndcX * tanHalf * aspect)), mul(up, ndcY * tanHalf)));
+  const origin = state.camera.position;
+
+  let best = null, bestT = Infinity;
+
+  (state.doc.brushes || []).forEach((b, i) => {
+    const { min, max } = brushBounds(b);
+    const t = rayAABB(origin, dir, min, max);
+    if (t !== null && t < bestT) { bestT = t; best = { kind: 'brush', index: i }; }
+  });
+
+  (state.doc.entities || []).forEach((e, i) => {
+    const o = e.origin || (e.min && e.max ? [(e.min[0] + e.max[0]) / 2, (e.min[1] + e.max[1]) / 2, (e.min[2] + e.max[2]) / 2] : null);
+    if (!o) return;
+    const r = 0.6;
+    const t = rayAABB(origin, dir, [o[0] - r, o[1] - r, o[2] - r], [o[0] + r, o[1] + r, o[2] + r]);
+    // Entities win ties with brushes so a prop sitting on a floor stays clickable.
+    if (t !== null && t <= bestT + 0.35) { bestT = t; best = { kind: 'entity', index: i }; }
+  });
+
+  if (best) select(best.kind, best.index);
+}
+
+function rayAABB(origin, dir, min, max) {
+  let tmin = 0, tmax = Infinity;
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(dir[i]) < 1e-8) {
+      if (origin[i] < min[i] || origin[i] > max[i]) return null;
+    } else {
+      const inv = 1 / dir[i];
+      let t1 = (min[i] - origin[i]) * inv;
+      let t2 = (max[i] - origin[i]) * inv;
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+      tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+      if (tmin > tmax) return null;
+    }
+  }
+  return tmin;
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 2) { state.looking = true; e.preventDefault(); }
+  else if (e.button === 0) pickAt(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', (e) => { if (e.button === 2) state.looking = false; });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+window.addEventListener('mousemove', (e) => {
+  if (!state.looking && !state.keys.has('KeyZ')) return;
+  state.camera.angles[1] -= e.movementX * 0.16;
+  state.camera.angles[0] = clamp(state.camera.angles[0] + e.movementY * 0.16, -89, 89);
+});
+
+canvas.addEventListener('wheel', (e) => {
+  if (e.shiftKey) {
+    state.flySpeed = clamp(state.flySpeed * (e.deltaY > 0 ? 0.85 : 1.18), 0.5, 80);
+    toast('Fly speed ' + state.flySpeed.toFixed(1));
+    e.preventDefault();
+  }
+}, { passive: false });
+
+window.addEventListener('keydown', (e) => {
+  const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+  if (typing) return;
+  state.keys.add(e.code);
+  if (e.code === 'Delete' || e.code === 'Backspace') { deleteSelection(); e.preventDefault(); }
+  if (e.code === 'KeyD' && (e.ctrlKey || e.metaKey)) { duplicateSelection(); e.preventDefault(); }
+});
+window.addEventListener('keyup', (e) => state.keys.delete(e.code));
+window.addEventListener('blur', () => { state.keys.clear(); state.looking = false; });
+
+function moveCamera(dt) {
+  const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName);
+  if (typing) return;
+  const fwd = anglesToForward(state.camera.angles);
+  const right = anglesToRight(state.camera.angles);
+  let move = [0, 0, 0];
+  if (state.keys.has('KeyW')) move = add(move, fwd);
+  if (state.keys.has('KeyS')) move = sub(move, fwd);
+  if (state.keys.has('KeyD') && !state.keys.has('ControlLeft')) move = add(move, right);
+  if (state.keys.has('KeyA')) move = sub(move, right);
+  if (state.keys.has('KeyE')) move = add(move, [0, 1, 0]);
+  if (state.keys.has('KeyQ')) move = sub(move, [0, 1, 0]);
+  const boost = state.keys.has('ShiftLeft') ? 2.6 : 1;
+  if (move[0] || move[1] || move[2]) {
+    state.camera.position = add(state.camera.position, mul(norm(move), state.flySpeed * boost * dt));
+  }
+}
+
+function drawSelectionHighlight() {
+  const sel = state.selection;
+  if (!sel) return;
+  const obj = sel.kind === 'brush' ? state.doc.brushes[sel.index] : state.doc.entities[sel.index];
+  if (!obj) return;
+
+  let center, half;
+  if (obj.min && obj.max) {
+    center = mul(add(obj.min, obj.max), 0.5);
+    half = mul(sub(obj.max, obj.min), 0.5).map((n) => Math.abs(n) + 0.06);
+  } else if (obj.origin) {
+    center = obj.origin;
+    half = [0.35, 0.35, 0.35];
+  } else return;
+
+  renderer.setEmissive(true);
+  renderer.drawBox(center, half, 7, [0.42, 1.0, 0.9]);
+  renderer.setEmissive(false);
+}
+
+let last = 0;
+function frame(now) {
+  const dt = Math.min((now - last) / 1000 || 0, 0.1);
+  last = now;
+  moveCamera(dt);
+
+  const aspect = renderer.resize();
+  if (state.built) {
+    const camera = { position: state.camera.position, forward: anglesToForward(state.camera.angles), fov: 75 };
+    renderer.beginShadowPass();
+    renderer.drawWorld(true);
+    renderer.endShadowPass();
+    renderer.beginFrame(camera, state.built.env, aspect);
+    renderer.drawWorld(false);
+    drawEntityGizmos();
+    drawSelectionHighlight();
+  }
+  requestAnimationFrame(frame);
+}
+
+// Entities have no geometry of their own in the editor, so show each as a
+// coloured marker — otherwise a level's logic is invisible while editing.
+const GIZMO_COLORS = {
+  info_player_start: [0.4, 1.0, 0.5],
+  npc_grunt: [1.0, 0.45, 0.4],
+  light: [1.0, 0.92, 0.5],
+  prop_physics: [0.75, 0.7, 0.6],
+  item_health: [0.4, 1.0, 0.6],
+  item_ammo: [1.0, 0.85, 0.35],
+  trigger_multiple: [0.5, 0.7, 1.0],
+  env_explosion: [1.0, 0.5, 0.2],
+  point_ragdoll: [0.9, 0.5, 0.9],
+};
+
+function drawEntityGizmos() {
+  renderer.setEmissive(true);
+  for (const e of state.doc.entities || []) {
+    const color = GIZMO_COLORS[e.classname] || [0.6, 0.85, 1.0];
+    if (e.min && e.max) {
+      renderer.drawBox(mul(add(e.min, e.max), 0.5), mul(sub(e.max, e.min), 0.5), 7, color);
+    } else if (e.origin) {
+      renderer.drawBox(e.origin, [0.18, 0.18, 0.18], 7, color);
+    }
+  }
+  renderer.setEmissive(false);
+}
+
+// ---------------------------------------------------------------------------
+// Load / save
+// ---------------------------------------------------------------------------
+
+const mapSelect = document.getElementById('map-select');
+for (const m of MAPS) {
+  const o = document.createElement('option');
+  o.value = m; o.textContent = m.split('/').pop();
+  mapSelect.appendChild(o);
+}
+
+const classSelect = document.getElementById('ent-class');
+for (const c of registeredClassnames()) {
+  const o = document.createElement('option');
+  o.value = c; o.textContent = c;
+  classSelect.appendChild(o);
+}
+
+async function loadSelected() {
+  const path = '../' + mapSelect.value;
+  state.doc = await loadMap(path);
+  state.selection = null;
+  rebuild();
+  refreshProps();
+  toast('Loaded ' + state.doc.name);
+}
+
+document.getElementById('reload').onclick = () => loadSelected().catch((e) => toast(String(e.message)));
+document.getElementById('add-box').onclick = () => addBrush('box');
+document.getElementById('add-ramp').onclick = () => addBrush('ramp');
+document.getElementById('add-cyl').onclick = () => addBrush('cylinder');
+document.getElementById('add-ent').onclick = addEntity;
+
+document.getElementById('copy').onclick = async () => {
+  const text = JSON.stringify(state.doc, null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Map JSON copied — paste it over the map file');
+  } catch {
+    toast('Clipboard blocked — use Download instead');
+  }
+};
+
+document.getElementById('download').onclick = () => {
+  const blob = new Blob([JSON.stringify(state.doc, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.doc.name || 'map') + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+document.getElementById('playtest').onclick = () => {
+  window.location.href = '../index.html?autoplay=1&map=' + encodeURIComponent(mapSelect.value);
+};
+
+document.getElementById('apply-paste').onclick = () => {
+  try {
+    state.doc = JSON.parse(document.getElementById('paste').value);
+    state.selection = null;
+    rebuild();
+    refreshProps();
+    toast('Applied pasted map');
+  } catch (err) {
+    toast('Invalid JSON: ' + err.message);
+  }
+};
+
+window.editor = state;
+await loadSelected();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

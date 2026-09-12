@@ -49,6 +49,13 @@ Every install path (plugin, personal, project, packaged bundles, and the recomme
 | [`debug-triage`](skills/debug-triage/) | Systematically narrows down a non-obvious bug: reproduce, isolate, hypothesize, test, verify. |
 | [`document-formatter`](skills/document-formatter/) | Restructures messy, multi-topic notes into a properly organized document. |
 | [`research-brief`](skills/research-brief/) | Sourced research briefs with confidence labels and consensus vs. disagreement shown explicitly. |
+| [`fount-gamedev`](skills/fount-gamedev/) | Authors levels, entities and logic for the bundled [Fount engine](apps/fount/) — games that run with zero API calls. |
+
+## Bundled app: Fount Engine
+
+[`apps/fount/`](apps/fount/) is a dependency-free WebGL2 FPS engine built around one constraint: **Claude authors the whole game as text, and the game then runs with no API calls at all.** Levels are JSON brushes, textures are procedural generators, sounds are synthesised, and level logic is declared as entity output→input connections — so a complete game is diffable text with no binary assets, and the finished thing runs offline forever with no key and no per-play cost.
+
+It has brush-based collision (Quake-style swept AABB tracing), verlet ragdolls that inherit a victim's momentum on death, a Source-style entity IO system, and an in-browser editor that round-trips with the hand-written JSON. Run it with `cd apps/fount && python3 -m http.server 8099`, then pair it with the `fount-gamedev` skill and ask for a level.
 
 More skills are added one at a time, each fully tested and documented before the next starts — see [`docs/PLAN.md`](docs/PLAN.md) Section 8 for the full planned catalog.
 
