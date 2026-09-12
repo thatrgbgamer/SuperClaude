@@ -18,6 +18,12 @@ So a whole game is text you can diff, review, and edit in one pass.
 
 ```sh
 cd apps/fount
+./run.sh              # or ./run.sh 9000 for a different port
+```
+
+That serves the files and opens a browser. Equivalent by hand:
+
+```sh
 python3 -m http.server 8099
 ```
 

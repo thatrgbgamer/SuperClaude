@@ -4,6 +4,31 @@ Every skill here is a plain folder — `SKILL.md` plus optional `references/`, `
 
 You don't need all of them. Pick what's useful; each skill works completely on its own.
 
+## Path 0: the installer (easiest)
+
+```sh
+git clone https://github.com/thatrgbgamer/SuperClaude.git
+cd SuperClaude
+./install.sh
+```
+
+That installs the starter set into `~/.claude/skills/`. Other forms:
+
+```sh
+./install.sh --list                      # what's available and what's already installed
+./install.sh --all                       # the whole collection
+./install.sh writing-assistant fount-gamedev
+./install.sh --all --project             # into ./.claude/skills for a team repo
+./install.sh --all --dry-run             # show what would happen, write nothing
+./install.sh --uninstall --all           # remove them again
+```
+
+Re-running updates skills in place, so `git pull && ./install.sh --all` is how you upgrade.
+
+The installer records what it installed in `~/.claude/.superclaude-manifest.json`. If a skill directory already exists that the installer didn't create — your own skill that happens to share a name — it is **skipped rather than overwritten**, and `--uninstall` likewise refuses to delete it. Pass `--force` when you genuinely want to overwrite.
+
+It's plain Python with no dependencies and makes no network calls; installing is just a directory copy, and `evals/` is left behind since only this repo's own testing uses it.
+
 ## Recommended starter set
 
 If you're not sure where to start:
@@ -14,9 +39,9 @@ If you're not sure where to start:
 
 Add the rest as you find a need for them — see the [catalog](../README.md#catalog).
 
-## Path 1: personal skills directory (recommended for individual use)
+## Path 1: personal skills directory, by hand
 
-Installs a skill for you, across every project. Copy the folder into your personal skills directory:
+What Path 0 does for you, if you'd rather do it yourself or can't run Python. Copy the folder into your personal skills directory:
 
 ```sh
 cp -r skills/writing-assistant ~/.claude/skills/

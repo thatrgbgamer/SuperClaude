@@ -19,13 +19,15 @@ The preferences system and authoring tooling are built, and skills are being add
 /plugin install superclaude@superclaude
 ```
 
-**Want just a skill or two?** Clone the repo and copy what you want into your personal skills directory:
+**Or use the installer:**
 
 ```sh
 git clone https://github.com/thatrgbgamer/SuperClaude.git
-cp -r SuperClaude/skills/preferences-setup ~/.claude/skills/
-cp -r SuperClaude/skills/writing-assistant ~/.claude/skills/
+cd SuperClaude
+./install.sh            # starter set — or --all, --list, --project, --uninstall
 ```
+
+It installs into `~/.claude/skills/`, updates in place when re-run, and never overwrites a skill directory it didn't create. See [`docs/INSTALL.md`](docs/INSTALL.md) for every option.
 
 Either way, next:
 
