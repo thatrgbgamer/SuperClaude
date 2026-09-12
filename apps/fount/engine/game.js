@@ -102,6 +102,11 @@ export class Game {
     this.ragdolls = new RagdollSystem();
     this.keys = new Set();
     this.mouseDown = false;
+    this.pointerLocked = false;
+    this.lookBlocked = false;
+    this.dragLook = false;
+    this.dragDistance = 0;
+    this.lastMouse = [0, 0];
     this.paused = false;
     this.accumulator = 0;
     this.lastTime = 0;
@@ -186,30 +191,88 @@ export class Game {
 
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Tab') e.preventDefault();
+      // Arrow keys would scroll the page, and they're the one look control
+      // that works even where the mouse can't be captured at all.
+      if (e.code.startsWith('Arrow')) e.preventDefault();
       this.keys.add(e.code);
       unlockAudio();
       if (e.code === 'KeyR' && e.shiftKey) this.restart();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => { this.keys.clear(); this.dragLook = false; });
 
     canvas.addEventListener('click', () => {
       unlockAudio();
-      if (!this.editorMode && document.pointerLockElement !== canvas) canvas.requestPointerLock();
+      if (!this.editorMode && document.pointerLockElement !== canvas) this.requestLook();
     });
 
     document.addEventListener('pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === canvas;
+      if (this.pointerLocked) this.lookBlocked = false;
+    });
+
+    // Pointer lock can be refused for reasons the page cannot see: an embedded
+    // frame, a browser policy, a stale user gesture. Left unhandled that is a
+    // silent dead mouse, so record it and let the drag fallback take over.
+    document.addEventListener('pointerlockerror', () => {
+      this.pointerLocked = false;
+      this.lookBlocked = true;
+      console.warn('[fount] pointer lock was refused — drag-to-look and arrow keys still work.');
     });
 
     document.addEventListener('mousemove', (e) => {
-      if (!this.pointerLocked) return;
-      this.player.angles[1] -= e.movementX * this.sensitivity;
-      this.player.angles[0] = clamp(this.player.angles[0] + e.movementY * this.sensitivity, -89, 89);
+      if (this.pointerLocked) {
+        this.applyLook(e.movementX, e.movementY);
+        return;
+      }
+      if (!this.dragLook) return;
+      const dx = e.clientX - this.lastMouse[0];
+      const dy = e.clientY - this.lastMouse[1];
+      this.lastMouse = [e.clientX, e.clientY];
+      this.dragDistance += Math.abs(dx) + Math.abs(dy);
+      this.applyLook(dx, dy);
     });
 
-    canvas.addEventListener('mousedown', (e) => { if (e.button === 0) this.mouseDown = true; });
-    window.addEventListener('mouseup', () => { this.mouseDown = false; });
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (this.pointerLocked) {
+        this.mouseDown = true;
+        return;
+      }
+      // Without pointer lock, hold-and-drag aims. The shot is deferred to
+      // mouseup so a drag doesn't also fire a bullet at whatever you passed.
+      this.dragLook = true;
+      this.dragDistance = 0;
+      this.lastMouse = [e.clientX, e.clientY];
+      e.preventDefault();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (this.dragLook) {
+        this.dragLook = false;
+        if (this.dragDistance < 6) this.fire();
+      }
+      this.mouseDown = false;
+    });
+  }
+
+  /** The one place camera angles move, whatever the input route. */
+  applyLook(dx, dy) {
+    if (!this.player) return;
+    this.player.angles[1] -= dx * this.sensitivity;
+    this.player.angles[0] = clamp(this.player.angles[0] + dy * this.sensitivity, -89, 89);
+  }
+
+  requestLook() {
+    const result = this.canvas.requestPointerLock();
+    // Newer browsers return a promise; an unhandled rejection here is exactly
+    // how this failure used to disappear without a trace.
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => {
+        this.lookBlocked = true;
+        console.warn('[fount] pointer lock was refused — drag-to-look and arrow keys still work.');
+      });
+    }
   }
 
   restart() {
@@ -306,8 +369,18 @@ export class Game {
     }
   }
 
+  /** Keyboard look. Needs no mouse capture, so it works everywhere. */
+  keyboardLook(dt) {
+    const turn = 115 * dt;
+    if (this.keys.has('ArrowLeft')) this.applyLook(-turn / this.sensitivity, 0);
+    if (this.keys.has('ArrowRight')) this.applyLook(turn / this.sensitivity, 0);
+    if (this.keys.has('ArrowUp')) this.applyLook(0, -turn / this.sensitivity);
+    if (this.keys.has('ArrowDown')) this.applyLook(0, turn / this.sensitivity);
+  }
+
   step(dt) {
     const player = this.player;
+    this.keyboardLook(dt);
     player.fireCooldown = Math.max(0, player.fireCooldown - dt);
     player.damageFlash = Math.max(0, player.damageFlash - dt * 2.2);
 
@@ -381,6 +454,8 @@ export class Game {
       damageFlash: p.damageFlash,
       entities: this.world.entities.length,
       map: this.mapName,
+      pointerLocked: this.pointerLocked,
+      lookBlocked: this.lookBlocked,
       debug: this.spawnWarning || this.debugText,
     });
   }
