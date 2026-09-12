@@ -22,3 +22,13 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - `fount-gamedev` skill: teaches the map format, entity library, IO system and custom-behaviour API for the Fount engine, with three task-split reference files.
 - Installer: `./install.sh` (wrapping `tools/install.py`) installs, updates, lists and uninstalls skills into `~/.claude/skills` or a project directory. Tracks what it installed in a manifest so it never overwrites or deletes a skill directory it didn't create without `--force`. Stdlib only, no network calls.
 - `apps/fount/run.sh` launcher: serves the engine and opens a browser.
+
+### Fixed
+
+- **Ragdolls exploded across the level.** `solveCollisions` rewrote each particle's implied velocity *inside* the constraint iteration loop, so every constraint correction fed back in as fresh speed and compounded six times per step. Limbs reached 120 m/s and stretched 51m, drawing as screen-filling polygons that made it look like the camera was stuck. Collision is now a positional correction inside the loop, with friction and into-surface damping applied once afterward.
+- **Every ragdoll impulse was twice its intended strength**: impulses converted force to a verlet offset with `1/60` while the simulation steps at `1/120`. Both now share one exported `STEP_DT`.
+- **Ramps with `dir: 1` produced a completely empty brush.** The cut plane's normal did not follow the sign of the run, inverting the halfspace. In `dm_crucible` this meant the ramp to the raised platform did not exist, leaving the platform, its NPC and its medkit unreachable.
+- **`wedge` brushes never cut anything** — the diagonal plane passed through the corner it was meant to remove, so every wedge rendered as a plain box.
+- Added hard safety rails to the ragdoll solver (45 m/s per particle, 2m reach from the pelvis, non-finite recovery) so no solver misbehaviour can draw a limb across the map again.
+- `drawSegment` now rejects non-finite endpoints instead of rasterising them as a screen-filling triangle.
+- Respawning no longer snaps the camera back to the spawn yaw, which read as the game fighting you for the mouse.

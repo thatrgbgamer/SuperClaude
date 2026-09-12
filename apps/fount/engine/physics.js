@@ -337,7 +337,6 @@ export class RigidBody {
     this.position = result.position;
 
     if (result.blocked && result.normal) {
-      const into = dot(result.velocity, result.normal);
       this.velocity = result.velocity;
       if (result.normal[1] > GROUND_NORMAL_Y) {
         const speed = Math.hypot(this.velocity[0], this.velocity[2]);
@@ -352,7 +351,6 @@ export class RigidBody {
           this.asleep = true;
         }
       }
-      void into;
     } else {
       this.velocity = result.velocity;
     }

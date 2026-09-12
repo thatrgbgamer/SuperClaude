@@ -484,7 +484,6 @@ defineEntity('env_explosion', {
         const dir = norm(add(sub(other.origin, entity.origin), [0, 0.6, 0]));
 
         if (other.classname === 'npc_grunt') {
-          world.sendInput(other.name || '', 'Damage', {});
           killNPC(other, world, {
             attacker: ctx.activator,
             impulse: mul(dir, force * falloff * 1.6),

@@ -41,7 +41,10 @@ function rampPlanes(min, max, axis = 'x', dir = 1, low = null) {
   const run = highPoint[ai] - lowPoint[ai];
   const rise = highPoint[1] - lowPoint[1];
   const n = [0, 0, 0];
-  n[ai] = rise;
+  // The outward normal of a surface climbing along +axis tilts back toward
+  // -axis, so it must follow the sign of `run`. Without this the halfspace is
+  // inverted and the brush collapses to nothing at all.
+  n[ai] = -rise * Math.sign(run || 1);
   n[1] = Math.abs(run);
   planes.push(plane(n, lowPoint));
   return planes;
@@ -51,19 +54,18 @@ function rampPlanes(min, max, axis = 'x', dir = 1, low = null) {
 // angled corners and pillars without hand-writing plane equations.
 function wedgePlanes(min, max, corner = 'nx-nz') {
   const planes = boxPlanes(min, max);
+  // The cut runs along the diagonal between the two corners *adjacent* to the
+  // one being removed, with the normal pointing at the removed corner. Putting
+  // the plane through the removed corner itself (the obvious-looking choice)
+  // cuts away nothing and silently leaves a plain box.
   const cuts = {
-    'nx-nz': { n: [-1, 0, -1], p: [min[0], min[1], max[2]] },
-    'px-nz': { n: [1, 0, -1], p: [max[0], min[1], max[2]] },
-    'nx-pz': { n: [-1, 0, 1], p: [min[0], min[1], min[2]] },
-    'px-pz': { n: [1, 0, 1], p: [max[0], min[1], min[2]] },
+    'nx-nz': { n: [-1, 0, -1], through: [min[0], min[1], max[2]] },
+    'px-nz': { n: [1, 0, -1], through: [min[0], min[1], min[2]] },
+    'nx-pz': { n: [-1, 0, 1], through: [min[0], min[1], min[2]] },
+    'px-pz': { n: [1, 0, 1], through: [max[0], min[1], min[2]] },
   };
   const cut = cuts[corner] || cuts['nx-nz'];
-  const pointOnCut = corner === 'nx-nz' ? [min[0], min[1], min[2]]
-    : corner === 'px-nz' ? [max[0], min[1], min[2]]
-      : corner === 'nx-pz' ? [min[0], min[1], max[2]]
-        : [max[0], min[1], max[2]];
-  planes.push(plane(cut.n, pointOnCut));
-  void cut.p;
+  planes.push(plane(cut.n, cut.through));
   return planes;
 }
 

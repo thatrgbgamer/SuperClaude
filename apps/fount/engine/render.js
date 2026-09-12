@@ -469,7 +469,10 @@ export class Renderer {
   drawSegment(a, b, thickness, layer, tint, shadowPass = false) {
     const delta = sub(b, a);
     const length = len(delta);
-    if (length < 1e-5) return;
+    // A NaN endpoint fails every `<` comparison, so an unguarded segment would
+    // sail through a length check and rasterise as a screen-filling triangle.
+    // Skipping the limb is always better than blotting out the whole view.
+    if (!(length > 1e-5) || !Number.isFinite(length)) return;
     const center = mul(add(a, b), 0.5);
     const basis = m4basisFromDir(delta, this.scratch);
     this.drawBox(center, [thickness, length * 0.5, thickness], layer, tint, basis, shadowPass);

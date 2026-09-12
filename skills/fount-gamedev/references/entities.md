@@ -186,6 +186,8 @@ Outputs: `OnDamaged` (param = remaining health), `OnDeath`, `OnAttack`.
 
 **How death works.** On death the NPC's live character-controller velocity is handed to a fresh 16-particle verlet ragdoll, then the killing impulse is applied at the point of impact. So a body shot folds the torso, a headshot snaps the head back, and an NPC killed mid-sprint tumbles in the direction it was running. Bodies keep colliding with the world, get shoved by later bullets, and are thrown by explosions. `ragdolls.maxRagdolls` (default 24) retires the oldest body when exceeded.
 
+The solver clamps every particle to 45 m/s and to 2m from the pelvis (see `MAX_SPEED` / `MAX_REACH_FROM_PELVIS` in `engine/ragdoll.js`). Position-based dynamics can gain energy when constraints and contacts disagree, and an unbounded particle draws as a limb stretched across the whole level. If a huge impulse looks like it "caps out", that is these rails doing their job — raise them there rather than working around them in map JSON.
+
 Killing an NPC through `Damage` with a huge `param` is the scripted way to drop one on cue:
 
 ```json

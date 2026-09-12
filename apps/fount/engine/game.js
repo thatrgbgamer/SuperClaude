@@ -3,7 +3,7 @@
 
 import { Renderer } from './render.js';
 import { CollisionWorld, CharacterController } from './physics.js';
-import { RagdollSystem } from './ragdoll.js';
+import { RagdollSystem, STEP_DT } from './ragdoll.js';
 import { EntityWorld, defineEntity } from './entity.js';
 import { buildMap, loadMap, pointInBrush } from './map.js';
 import { playSound, playSoundAt, unlockAudio } from './audio.js';
@@ -13,7 +13,10 @@ import {
 } from './math.js';
 import { killNPC } from './entities.js';
 
-const FIXED_DT = 1 / 120;
+// Single source of truth, shared with the ragdoll solver: impulses convert
+// force to a verlet position offset using this exact value, so the two drifting
+// apart silently doubles every impulse in the game.
+const FIXED_DT = STEP_DT;
 const MAX_SUBSTEPS = 8;
 
 class Player {
@@ -36,7 +39,6 @@ class Player {
     this.dead = false;
     this.respawnTimer = 0;
     this.spawnPoint = config.spawn || [0, 2, 0];
-    this.spawnYaw = config.yaw ?? 0;
   }
 
   get position() { return this.controller.position; }
@@ -65,7 +67,9 @@ class Player {
   respawn() {
     this.controller.position = [...this.spawnPoint];
     this.controller.velocity = [0, 0, 0];
-    this.angles = [0, this.spawnYaw, 0];
+    // Deliberately keep the player's current yaw/pitch. Snapping the camera
+    // back on respawn reads as the game wrestling the mouse away from you.
+    this.angles[0] = 0;
     this.health = this.maxHealth;
     this.dead = false;
   }
