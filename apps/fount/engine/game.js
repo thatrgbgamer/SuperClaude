@@ -17,7 +17,11 @@ import { killNPC } from './entities.js';
 // force to a verlet position offset using this exact value, so the two drifting
 // apart silently doubles every impulse in the game.
 const FIXED_DT = STEP_DT;
-const MAX_SUBSTEPS = 8;
+// frameTime is clamped to 0.25s below, which is 30 steps at 1/120. Capping
+// lower than that meant a slow frame simulated less time than really elapsed
+// and threw the remainder away — the world advancing by a different amount
+// every frame, which is exactly what "janky" feels like.
+const MAX_SUBSTEPS = Math.ceil(0.25 / FIXED_DT);
 
 class Player {
   constructor(config = {}) {
@@ -46,6 +50,17 @@ class Player {
   get eyePosition() {
     const p = this.controller.position;
     return [p[0], p[1] + this.eyeHeight, p[2]];
+  }
+
+  /** Eye position blended between the last two physics steps, for rendering. */
+  interpolatedEye(alpha) {
+    const p = this.controller.position;
+    const q = this.prevPosition || p;
+    return [
+      q[0] + (p[0] - q[0]) * alpha,
+      q[1] + (p[1] - q[1]) * alpha + this.eyeHeight,
+      q[2] + (p[2] - q[2]) * alpha,
+    ];
   }
 
   get forward() { return anglesToForward(this.angles); }
@@ -380,6 +395,7 @@ export class Game {
 
   step(dt) {
     const player = this.player;
+    player.prevPosition = [...player.controller.position];
     this.keyboardLook(dt);
     player.fireCooldown = Math.max(0, player.fireCooldown - dt);
     player.damageFlash = Math.max(0, player.damageFlash - dt * 2.2);
@@ -412,7 +428,13 @@ export class Game {
       }
     }
 
-    if (this.mouseDown) this.fire();
+    // Keyboard fire. Several bindings because the obvious one (Space) is jump,
+    // and because a player whose browser refuses mouse capture still needs a
+    // way to shoot. Ctrl is the classic FPS fire key; F and Enter are safe
+    // alternatives that no browser shortcut claims on their own.
+    const keyboardFire = this.keys.has('KeyF') || this.keys.has('Enter')
+      || this.keys.has('ControlLeft') || this.keys.has('ControlRight');
+    if (this.mouseDown || keyboardFire) this.fire();
 
     this.world.update(dt);
     this.ragdolls.update(this.collision, dt);
@@ -421,8 +443,11 @@ export class Game {
   render() {
     const aspect = this.renderer.resize();
     const player = this.player;
+    const alpha = this.renderAlpha ?? 1;
     const camera = {
-      position: player.eyePosition,
+      // View angles are deliberately *not* interpolated: they come straight
+      // from input, and blending them would add a frame of aim latency.
+      position: player.interpolatedEye(alpha),
       forward: player.forward,
       fov: 78,
     };
@@ -432,13 +457,13 @@ export class Game {
     this.renderer.beginShadowPass();
     this.renderer.drawWorld(true);
     this.world.draw(this.renderer, true);
-    this.ragdolls.draw(this.renderer, true);
+    this.ragdolls.draw(this.renderer, true, alpha);
     this.renderer.endShadowPass();
 
     this.renderer.beginFrame(camera, this.env, aspect);
     this.renderer.drawWorld(false);
     this.world.draw(this.renderer, false);
-    this.ragdolls.draw(this.renderer, false);
+    this.ragdolls.draw(this.renderer, false, alpha);
   }
 
   updateHUD() {
@@ -489,8 +514,15 @@ export class Game {
         this.accumulator -= FIXED_DT;
         steps++;
       }
-      if (steps === MAX_SUBSTEPS) this.accumulator = 0;
+      // Only reachable if a single frame exceeded the 0.25s clamp's worth of
+      // steps, which it cannot — kept as a guard against a spiral of death.
+      if (steps === MAX_SUBSTEPS && this.accumulator > FIXED_DT) this.accumulator = 0;
     }
+
+    // Physics runs at a fixed rate but frames land between steps, so drawing
+    // raw step output makes objects advance in uneven hops. Rendering the
+    // in-between state is what turns that into smooth motion.
+    this.renderAlpha = clamp(this.accumulator / FIXED_DT, 0, 1);
 
     this.render();
     this.updateHUD();

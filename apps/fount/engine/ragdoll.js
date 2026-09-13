@@ -328,17 +328,32 @@ export class Ragdoll {
     return this.positions[P.PELVIS];
   }
 
-  draw(renderer, shadowPass = false) {
+  /**
+   * Verlet already keeps each particle's prior position, so smoothing the
+   * draw between physics steps costs one lerp and no extra state.
+   */
+  particleAt(i, alpha) {
+    const p = this.positions[i];
+    if (alpha >= 1 || this.settled) return p;
+    const q = this.previous[i];
+    return [
+      q[0] + (p[0] - q[0]) * alpha,
+      q[1] + (p[1] - q[1]) * alpha,
+      q[2] + (p[2] - q[2]) * alpha,
+    ];
+  }
+
+  draw(renderer, shadowPass = false, alpha = 1) {
     const bodyLayer = this.materials.body;
     const skinLayer = this.materials.skin;
     for (const [a, b, thickness, slot] of BONES) {
       renderer.drawSegment(
-        this.positions[a], this.positions[b], thickness,
+        this.particleAt(a, alpha), this.particleAt(b, alpha), thickness,
         slot === 'skin' ? skinLayer : bodyLayer,
         this.tint, shadowPass,
       );
     }
-    renderer.drawSphere(this.positions[P.HEAD], HEAD_RADIUS, skinLayer, this.tint, shadowPass);
+    renderer.drawSphere(this.particleAt(P.HEAD, alpha), HEAD_RADIUS, skinLayer, this.tint, shadowPass);
   }
 }
 
@@ -363,8 +378,8 @@ export class RagdollSystem {
     }
   }
 
-  draw(renderer, shadowPass = false) {
-    for (const r of this.ragdolls) r.draw(renderer, shadowPass);
+  draw(renderer, shadowPass = false, alpha = 1) {
+    for (const r of this.ragdolls) r.draw(renderer, shadowPass, alpha);
   }
 
   clear() {

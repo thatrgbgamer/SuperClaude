@@ -5,7 +5,11 @@ import { m4identity, m4mul, m4perspective, m4ortho, m4lookAt, m4basisFromDir, no
 import { buildTextureArray } from './textures.js';
 
 export const FLOATS_PER_VERT = 12; // pos3 + normal3 + uv2 + layer1 + tint3
-const SHADOW_SIZE = 2048;
+
+// 1024 costs a quarter of 2048's shadow-pass fill rate and is visually almost
+// indistinguishable at these map sizes. The shadow pass was the single most
+// expensive thing per frame, and frame cost is what makes motion feel rough.
+const SHADOW_SIZE = 1024;
 
 const VERT_SRC = `#version 300 es
 in vec3 aPos;
@@ -321,16 +325,33 @@ export class Renderer {
     this.worldCount = float32.length / FLOATS_PER_VERT;
   }
 
+  /**
+   * Reading clientWidth forces a layout flush, so it runs only when the
+   * element actually resized rather than on every single frame.
+   */
   resize() {
     const canvas = this.canvas;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.floor(canvas.clientWidth * dpr);
-    const h = Math.floor(canvas.clientHeight * dpr);
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
+    if (this._sizeDirty !== false) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.floor(canvas.clientWidth * dpr);
+      const h = Math.floor(canvas.clientHeight * dpr);
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      this._aspect = canvas.width / Math.max(canvas.height, 1);
+      this._sizeDirty = false;
+
+      if (!this._resizeHooked) {
+        this._resizeHooked = true;
+        const markDirty = () => { this._sizeDirty = true; };
+        window.addEventListener('resize', markDirty);
+        if (typeof ResizeObserver !== 'undefined') {
+          new ResizeObserver(markDirty).observe(canvas);
+        }
+      }
     }
-    return canvas.width / Math.max(canvas.height, 1);
+    return this._aspect;
   }
 
   computeLightMatrix(sunDir, bounds) {

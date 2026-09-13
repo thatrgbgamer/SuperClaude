@@ -11,6 +11,19 @@ import { pointInBrush } from './map.js';
 const layerOf = (world, name, fallback = 0) =>
   world.context.materialIndex.get(name) ?? fallback;
 
+// Physics advances in fixed steps while frames land between them, so anything
+// that moves is drawn at the blended position rather than the last step's.
+const renderAlpha = (world) => (world && world.context.game ? (world.context.game.renderAlpha ?? 1) : 1);
+
+function lerpState(prev, current, alpha) {
+  if (!prev || alpha >= 1) return current;
+  return [
+    prev[0] + (current[0] - prev[0]) * alpha,
+    prev[1] + (current[1] - prev[1]) * alpha,
+    prev[2] + (current[2] - prev[2]) * alpha,
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Spawn points and lights
 // ---------------------------------------------------------------------------
@@ -51,13 +64,15 @@ defineEntity('prop_physics', {
   },
   think(entity, world, dt) {
     const body = entity.state.body;
+    entity.state.prev = [...body.position];
     body.update(world.context.collision, dt);
     entity.origin = body.position;
     if (entity.origin[1] < -50) world.remove(entity);
   },
-  draw(entity, renderer, shadowPass) {
+  draw(entity, renderer, shadowPass, world) {
     const body = entity.state.body;
-    renderer.drawBox(body.position, body.halfExtents, entity.state.layer, entity.get('tint', [1, 1, 1]), null, shadowPass);
+    const at = lerpState(entity.state.prev, body.position, renderAlpha(world));
+    renderer.drawBox(at, body.halfExtents, entity.state.layer, entity.get('tint', [1, 1, 1]), null, shadowPass);
   },
   inputs: {
     Push(entity, world, ctx) {
@@ -355,6 +370,7 @@ defineEntity('npc_grunt', {
   think(entity, world, dt) {
     const s = entity.state;
     const ctrl = s.controller;
+    s.prev = [...ctrl.position];
     const player = world.context.player;
     const toPlayer = sub(player.position, ctrl.position);
     const distance = len(toPlayer);
@@ -390,10 +406,11 @@ defineEntity('npc_grunt', {
     if (ctrl.position[1] < -40) killNPC(entity, world, {});
   },
 
-  draw(entity, renderer, shadowPass) {
+  draw(entity, renderer, shadowPass, world) {
     const s = entity.state;
     const ctrl = s.controller;
-    const feet = [ctrl.position[0], ctrl.position[1] - ctrl.halfExtents[1], ctrl.position[2]];
+    const smoothed = lerpState(s.prev, ctrl.position, renderAlpha(world));
+    const feet = [smoothed[0], smoothed[1] - ctrl.halfExtents[1], smoothed[2]];
     const tint = entity.get('tint', [1, 1, 1]);
     const yawRad = s.yaw * Math.PI / 180;
     const right = [Math.sin(yawRad), 0, Math.cos(yawRad)];
