@@ -38,9 +38,17 @@ ES modules need a real HTTP origin — opening `index.html` from the filesystem 
 |---|---|
 | WASD | Move — air acceleration is capped Quake-style, so air-strafing and bunnyhopping preserve momentum |
 | Space | Jump |
-| Mouse | Look; left click to shoot |
+| Mouse | Look (click to capture, or drag); left click to shoot |
+| Arrow keys | Look, for when pointer lock is unavailable |
+| F / Enter / Ctrl | Shoot from the keyboard |
+| ` or ~ | Open the console |
 | Shift+R | Restart map |
 | Esc | Release mouse |
+
+Looking works three ways — pointer lock, mouse drag, arrow keys — on purpose.
+Pointer lock is refused by some browsers and embeddings, and when it was the
+only route a refusal left you unable to turn at all, with nothing on screen
+saying why. Now any one of them is enough, and a refusal says so in the HUD.
 
 Headshots do 100 damage, body shots 25. The ragdoll a kill produces inherits the victim's velocity and takes the bullet's impulse at the point of impact.
 
@@ -72,7 +80,13 @@ apps/fount/
 │   ├── map.js              Brush → planes → polygons, map loading
 │   ├── textures.js         Procedural material generators
 │   ├── audio.js            Procedural sound synthesis
+│   ├── console.js          In-game console: commands, cvars, completion
+│   ├── net.js              Multiplayer client: snapshots, interpolation
 │   └── game.js             Player, weapons, fixed-timestep loop
+├── server/
+│   ├── websocket.mjs       RFC 6455 server, written against the stdlib
+│   └── server.mjs          HTTP + session host, admin terminal
+├── serve.sh                Start a multiplayer server
 └── game/
     ├── maps/               Levels (JSON)
     └── scripts/            Game-specific entity behaviours
@@ -89,6 +103,131 @@ Full schema documentation, for humans and for Claude:
 - `skills/fount-gamedev/references/map-format.md` — brushes, materials, lighting, scale table
 - `skills/fount-gamedev/references/entities.md` — every classname, keyvalue, input and output
 - `skills/fount-gamedev/references/custom-behaviors.md` — `defineEntity` and engine services
+
+## Console
+
+Press `` ` `` (or `~`) in game. Tab completes, up/down walks history, and `help`
+lists everything.
+
+| Command | Does |
+|---|---|
+| `noclip`, `god` | The usual cheats |
+| `give health\|ammo [n]` | Top yourself up |
+| `teleport x y z`, `where` | Move about, find out where you are |
+| `spawn <classname> [key value …]` | Place an entity at your crosshair |
+| `ragdoll`, `killall`, `clearbodies` | Make a mess, then clean it up |
+| `ent [classname]`, `fire <target> <input> [value]` | Inspect entities; send them IO inputs |
+| `map <path>`, `restart`, `pause` | Level control |
+| `connect [host]`, `disconnect`, `say`, `name`, `players`, `status` | Multiplayer |
+
+Cvars are read by typing the name and set by typing a value after it:
+`sensitivity`, `fov`, `gravity`, `speed`, `jump`, `timescale`, `maxbodies`,
+`showfps`.
+
+`fire` is the useful one while building a level: it drives the same IO system
+the map JSON uses, so you can test a connection before you wire it up.
+
+## Multiplayer
+
+```sh
+cd apps/fount
+./serve.sh                                    # port 8099, all interfaces
+./serve.sh --port 8080 --name "My Server"
+./serve.sh --map game/maps/test_playground.json --max 24
+```
+
+One process serves the game files *and* hosts the session on the same port, so
+there is nothing else to run and nothing to configure: whoever opens the page is
+already pointed at the right server. Node 18+, no `npm install` — the WebSocket
+server in `server/websocket.mjs` is written against the standard library. The
+`.mjs` extension is deliberate: it makes the server load correctly whatever
+`package.json` your game repo happens to have next to it.
+
+Players join with `connect` in the console (no argument connects to whoever
+served the page), and `disconnect` leaves. Chat is `say`, `players` shows the
+scoreboard, `status` shows the connection.
+
+### Admin
+
+The terminal you started the server in *is* the admin console — type into it:
+
+| Command | Does |
+|---|---|
+| `status` | Who is connected, their scores, their addresses |
+| `say <text>` | Broadcast a server message |
+| `kick <who> [why]` | Disconnect a player |
+| `ban <who>`, `unban <addr>`, `bans` | Block an address, and manage the list |
+| `admin <who>`, `unadmin <who>` | Grant or revoke in-game admin rights |
+| `map <path>`, `restart` | Change or restart the level for everyone |
+| `quit` | Shut down |
+
+A player you have `admin`'d runs those same commands from the game by prefixing
+chat with `/` — `say /kick griefer`. Everyone else gets told to ask you.
+
+`<who>` matches a player id or a name prefix, so `kick 3` and `kick grie` both
+work.
+
+### Putting a server on the internet
+
+The server binds all interfaces, so on a LAN people can already reach it at
+`http://<your-lan-ip>:8099/`. Beyond that, pick whichever of these fits:
+
+**A tunnel** — nothing to configure, good for a quick game with friends:
+
+```sh
+./serve.sh --port 8099 &
+cloudflared tunnel --url http://localhost:8099     # or: ngrok http 8099
+```
+
+Share the HTTPS URL it prints. The client picks `wss://` automatically when the
+page is served over HTTPS, so tunnels work with no flags.
+
+**Port forwarding** — forward external 8099 to your machine's 8099 and share
+`http://<your-public-ip>:8099/`. Free, but it exposes your home address to
+everyone who plays.
+
+**A cheap VPS** — the durable option, and the one to use if the server should
+outlive your laptop:
+
+```sh
+git clone https://github.com/<you>/<your-game>.git
+cd <your-game>
+./serve.sh --port 80 --name "My Game"
+```
+
+That is the whole deployment. Because a scaffolded Fount game vendors the engine
+and the server, the repo *is* the build — there is no toolchain to install on the
+box beyond Node. Keep it running with whatever you already use; a systemd unit is
+enough:
+
+```ini
+[Service]
+ExecStart=/usr/bin/node /srv/my-game/server/server.mjs --port 80 --name "My Game"
+WorkingDirectory=/srv/my-game
+Restart=always
+```
+
+To put it behind nginx or Caddy for TLS, proxy to the port and pass the
+`Upgrade`/`Connection` headers through so WebSockets survive the hop. The server
+reads `X-Forwarded-For`, so `status` and `ban` see real client addresses rather
+than the proxy's.
+
+`GET /api/status` returns the server name, map, player list and uptime as JSON —
+enough for a server browser or an uptime check.
+
+### How it works, and what that costs
+
+Remote players are drawn ~100 ms behind the newest snapshot, interpolated
+between the two snapshots straddling that time. Rendering the latest snapshot
+directly would teleport players on every packet; one tick of slack buys smooth
+motion for a little latency, which is the standard trade. The server ticks at
+20 Hz and clients report at the same rate.
+
+Shooting is client-authoritative: your client traces the shot locally against
+the positions it is drawing and tells the server what it hit, which is what makes
+hits feel immediate on a high-ping connection. The server sanity-checks speed and
+rate-limits messages, but a modified client can still lie about where it is. This
+is a community-server trust model, not an anti-cheat one — see **Known limits**.
 
 ## Starting your own game repo
 
@@ -138,7 +277,9 @@ Honest about what this is not:
 - **No rotational rigid bodies.** `prop_physics` boxes translate and get a visual spin, but don't tumble with real angular dynamics. Ragdolls carry the physical interest instead.
 - **No BSP/PVS culling.** Every brush in the static mesh is drawn every frame. Fine at demo-map scale; a very large level would want spatial partitioning.
 - **Point lights don't cast shadows** — only the sun does.
-- **Single-player only.** No networking anywhere.
+- **The server is not authoritative over movement.** Clients report their own
+  position; the server enforces rate limits and a speed sanity check and owns
+  scores, chat and admin. Right for community servers, wrong for ranked play.
 - **Brushes must be convex.** Concave shapes are built from several brushes, exactly as in Quake and Source.
 
 ## License

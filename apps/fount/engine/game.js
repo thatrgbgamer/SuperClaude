@@ -13,6 +13,7 @@ import {
 } from './math.js';
 import { killNPC } from './entities.js';
 import { GameConsole } from './console.js';
+import { NetClient } from './net.js';
 
 // Single source of truth, shared with the ragdoll solver: impulses convert
 // force to a verlet position offset using this exact value, so the two drifting
@@ -81,6 +82,7 @@ class Player {
   }
 
   respawn() {
+    this.deaths = (this.deaths || 0) + 1;
     this.controller.position = [...this.spawnPoint];
     this.controller.velocity = [0, 0, 0];
     // Deliberately keep the player's current yaw/pitch. Snapping the camera
@@ -137,10 +139,17 @@ export class Game {
     this.timescale = 1;
     this.bindInput();
     this.console = new GameConsole(this);
+    this.net = new NetClient(this);
+    this.net.onChat = (from, text) => {
+      this.console.print(from ? `${from}: ${text}` : text, from ? 'out' : 'cmd');
+      if (this.hud && this.hud.chat) this.hud.chat(from, text);
+    };
+    this.net.onStatus = (text) => this.console.print(text, 'cmd');
   }
 
   async load(mapUrl) {
     const doc = await loadMap(mapUrl);
+    this.currentMapPath = mapUrl;
     this.loadMapDocument(doc);
   }
 
@@ -345,10 +354,30 @@ export class Game {
     const maxRange = 120;
     const end = add(origin, mul(dir, maxRange));
 
+    if (this.net && this.net.connected) this.net.reportShot(origin, dir);
+
     const worldTrace = this.collision.traceRay(origin, end);
     let bestDist = worldTrace.hit ? worldTrace.fraction * maxRange : maxRange;
     let hitEntity = null;
     let hitPoint = worldTrace.endPos;
+
+    // Remote players are checked against the same ray as NPCs, so geometry
+    // between you and them still blocks the shot.
+    if (this.net && this.net.connected) {
+      const remote = this.net.pickPlayer(origin, dir, bestDist);
+      if (remote) {
+        const point = add(origin, mul(dir, remote.t));
+        const headshot = point[1] > remote.player.pos[1] + 0.55;
+        this.net.reportHit(
+          remote.player.id,
+          headshot ? 100 : 25,
+          point.map((n) => +n.toFixed(2)),
+          mul(dir, headshot ? 16 : 9),
+        );
+        playSoundAt('impact', point, this.player.eyePosition, 40);
+        return;
+      }
+    }
 
     for (const entity of this.world.entities) {
       if (entity.removed || entity.classname !== 'npc_grunt' || entity.state.dead) continue;
@@ -425,7 +454,10 @@ export class Game {
 
     if (player.dead) {
       player.respawnTimer -= dt;
-      if (player.respawnTimer <= 0) player.respawn();
+      if (player.respawnTimer <= 0) {
+        player.respawn();
+        if (this.net && this.net.connected) this.net.reportRespawn(player.controller.position);
+      }
     } else if (player.noclip) {
       // Free flight, ignoring geometry entirely. Space/Shift climb and drop.
       const wish = this.wishDirection();
@@ -473,6 +505,7 @@ export class Game {
 
     this.world.update(dt);
     this.ragdolls.update(this.collision, dt);
+    if (this.net && this.net.connected) this.net.reportSelf();
   }
 
   render() {
@@ -493,12 +526,14 @@ export class Game {
     this.renderer.drawWorld(true);
     this.world.draw(this.renderer, true);
     this.ragdolls.draw(this.renderer, true, alpha);
+    if (this.net) this.net.draw(this.renderer, true);
     this.renderer.endShadowPass();
 
     this.renderer.beginFrame(camera, this.env, aspect);
     this.renderer.drawWorld(false);
     this.world.draw(this.renderer, false);
     this.ragdolls.draw(this.renderer, false, alpha);
+    if (this.net) this.net.draw(this.renderer, false);
   }
 
   updateHUD() {

@@ -284,6 +284,55 @@ export class GameConsole {
       return `paused ${g.paused ? 'ON' : 'off'}`;
     });
 
+    // --- multiplayer ---
+    this.register('connect', 'Join a server (default: the one hosting this page)', (args) => {
+      const g = game();
+      if (!g.net) return 'Networking unavailable in this build.';
+      if (args[0]) g.net.url = normaliseServerUrl(args[0]);
+      g.net.wantReconnect = true;
+      g.net.connect();
+      return `connecting to ${g.net.url}`;
+    }, { usage: '[host[:port]]' });
+
+    this.register('disconnect', 'Leave the current server', () => {
+      const g = game();
+      if (!g.net || !g.net.connected) return 'Not connected.';
+      g.net.disconnect();
+      return 'disconnected';
+    });
+
+    this.register('say', 'Send a chat message (prefix with / for admin commands)', (args) => {
+      const g = game();
+      if (!g.net || !g.net.connected) return 'Not connected to a server.';
+      const text = args.join(' ');
+      if (!text) return 'usage: say <text>';
+      g.net.chat(text);
+    }, { usage: '<text>' });
+
+    this.register('name', 'Set your player name', (args) => {
+      const g = game();
+      const next = args.join(' ').trim();
+      if (!next) return `name = ${g.net ? g.net.name : '(offline)'}`;
+      if (g.net) g.net.setName(next.slice(0, 20));
+      return `name = ${next.slice(0, 20)}`;
+    }, { usage: '<name>' });
+
+    this.register('players', 'Show the scoreboard', () => {
+      const g = game();
+      if (!g.net || !g.net.connected) return 'Not connected to a server.';
+      const rows = g.net.scoreboard();
+      if (!rows.length) return 'No players.';
+      return rows.map((r) => `  ${String(r.kills).padStart(3)}k ${String(r.deaths).padStart(3)}d  ${r.name}`).join('\n');
+    });
+
+    this.register('status', 'Show connection status', () => {
+      const g = game();
+      if (!g.net) return 'Networking unavailable.';
+      return g.net.connected
+        ? `connected to ${g.net.serverName || g.net.url} as ${g.net.name}\n${g.net.playerCount} player(s) online`
+        : `not connected (${g.net.statusText || 'idle'})`;
+    });
+
     this.register('bind', 'Show the key bindings', () => (
       'WASD        move\n'
       + 'Space       jump\n'
@@ -448,6 +497,14 @@ export class GameConsole {
       this.updateCompletion();
     }
   }
+}
+
+/** Accepts "example.com", "example.com:8099" or a full ws:// URL. */
+function normaliseServerUrl(input) {
+  const raw = String(input).trim();
+  if (/^wss?:\/\//i.test(raw)) return raw;
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${raw}`;
 }
 
 function escapeHtml(s) {

@@ -57,7 +57,9 @@ Every install path (plugin, personal, project, packaged bundles, and the recomme
 
 [`apps/fount/`](apps/fount/) is a dependency-free WebGL2 FPS engine built around one constraint: **Claude authors the whole game as text, and the game then runs with no API calls at all.** Levels are JSON brushes, textures are procedural generators, sounds are synthesised, and level logic is declared as entity output→input connections — so a complete game is diffable text with no binary assets, and the finished thing runs offline forever with no key and no per-play cost.
 
-It has brush-based collision (Quake-style swept AABB tracing), verlet ragdolls that inherit a victim's momentum on death, a Source-style entity IO system, and an in-browser editor that round-trips with the hand-written JSON. Run it with `cd apps/fount && python3 -m http.server 8099`, then pair it with the `fount-gamedev` skill and ask for a level.
+It has brush-based collision (Quake-style swept AABB tracing), verlet ragdolls that inherit a victim's momentum on death, a Source-style entity IO system, a developer console, and an in-browser editor that round-trips with the hand-written JSON. Run it with `cd apps/fount && python3 -m http.server 8099`, then pair it with the `fount-gamedev` skill and ask for a level.
+
+It can also host itself. `apps/fount/serve.sh` serves the game and runs a multiplayer session on one port, using a WebSocket server written against the Node standard library — so a game repo deploys with `git clone && ./serve.sh` on any box with Node 18+, with nothing to build and nothing to install. `tools/new_fount_game.py` scaffolds a game into its own repository with the engine, the server and the `fount-gamedev` skill vendored in, so Claude Code knows the engine in a project where SuperClaude isn't present at all.
 
 More skills are added one at a time, each fully tested and documented before the next starts — see [`docs/PLAN.md`](docs/PLAN.md) Section 8 for the full planned catalog.
 

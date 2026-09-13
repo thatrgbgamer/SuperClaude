@@ -33,7 +33,7 @@ MANIFEST_NAME = ".fount-vendor.json"
 
 # Directories this script owns and may refresh on --update. Everything else in
 # the project belongs to the person building the game and is never touched.
-VENDORED = ["engine", ".claude/skills/fount-gamedev"]
+VENDORED = ["engine", "server", ".claude/skills/fount-gamedev"]
 SKILL_EXCLUDE = {"evals"}
 
 GREEN, YELLOW, RED, DIM, BOLD, RESET = (
@@ -107,6 +107,22 @@ Then open <http://localhost:8099/>. The in-browser editor is at
 ES modules need a real HTTP origin, so opening `index.html` from the
 filesystem won't work. There's no build step — edit a file, refresh.
 
+## Play it with other people
+
+```sh
+./serve.sh --name "{title}"
+```
+
+That serves the game *and* hosts the multiplayer session on the same port, so
+players just open the page and type `connect` in the console (`` ` `` opens it).
+Node 18+, no `npm install`. The terminal you started it in is the admin console —
+type `help` there for `kick`, `ban`, `map` and the rest.
+
+To put it on the internet, deploy this repo as-is: the engine and the server are
+both vendored, so `git clone && ./serve.sh` on any box with Node is the whole
+deployment. See the engine README's multiplayer section for tunnels, reverse
+proxies and a systemd unit.
+
 ## Building this game with Claude Code
 
 This repo ships the `fount-gamedev` skill at `.claude/skills/fount-gamedev/`,
@@ -126,9 +142,11 @@ The skill's reference docs are worth reading directly too:
 ```text
 {slug}/
 ├── run.sh                  Serve the game locally
+├── serve.sh                Run a multiplayer server
 ├── index.html              Game shell and HUD; the map list lives here
 ├── editor/index.html       In-browser level editor
 ├── engine/                 Vendored Fount engine — don't edit to build a game
+├── server/                 Vendored multiplayer server — likewise
 └── game/
     ├── maps/               Your levels (JSON)
     └── scripts/            Your custom entity behaviours (JS)
@@ -141,8 +159,8 @@ Create `game/maps/<name>.json`, then register it in the `MAPS` array in both
 
 ## Updating the engine
 
-`engine/` and `.claude/skills/fount-gamedev/` are vendored copies. To pull in a
-newer version, clone the engine repo and re-run the scaffolder against this
+`engine/`, `server/` and `.claude/skills/fount-gamedev/` are vendored copies. To
+pull in a newer version, clone the engine repo and re-run the scaffolder against this
 directory:
 
 ```sh
@@ -229,6 +247,13 @@ def vendor(target, dry_run):
         if license_src.exists():
             shutil.copy2(license_src, engine_dest / "LICENSE-FOUNT")
 
+    # The multiplayer server is engine code too, so it is managed the same way:
+    # a game that vendors both can be deployed straight from its own repo.
+    server_dest = target / "server"
+    actions.append(("server/", "refresh" if server_dest.exists() else "add"))
+    if not dry_run:
+        copy_tree(ENGINE_SRC / "server", server_dest)
+
     skill_dest = target / ".claude" / "skills" / "fount-gamedev"
     actions.append((".claude/skills/fount-gamedev/", "refresh" if skill_dest.exists() else "add"))
     if not dry_run:
@@ -273,13 +298,14 @@ def scaffold(target, title, slug, holder, dry_run):
             (target / rel).write_text(rewrite_map_list(src.read_text(encoding="utf-8"), maps),
                                       encoding="utf-8")
 
-    if (target / "run.sh").exists():
-        skipped.append("run.sh")
-    else:
-        created.append("run.sh")
+    for script in ("run.sh", "serve.sh"):
+        if (target / script).exists():
+            skipped.append(script)
+            continue
+        created.append(script)
         if not dry_run:
-            shutil.copy2(ENGINE_SRC / "run.sh", target / "run.sh")
-            (target / "run.sh").chmod(0o755)
+            shutil.copy2(ENGINE_SRC / script, target / script)
+            (target / script).chmod(0o755)
 
     return created, skipped
 
@@ -367,7 +393,7 @@ def main():
 
     print(f"\n{BOLD}Done.{RESET} {DIM}{git_note}{RESET}")
     if args.update:
-        print("Engine and skill refreshed. Your game content was left untouched.\n")
+        print("Engine, server and skill refreshed. Your game content was left untouched.\n")
         return 0
 
     if args.vendor_only:
@@ -387,6 +413,7 @@ A Claude Code session opened here now finds the fount-gamedev skill at
 Next:
   cd {target}
   ./run.sh                      {DIM}# play it at http://localhost:8099/{RESET}
+  ./serve.sh                    {DIM}# or host a multiplayer server on the same port{RESET}
 
 To put it on GitHub (nothing was pushed for you):
   gh repo create {slug} --source=. --private --push
