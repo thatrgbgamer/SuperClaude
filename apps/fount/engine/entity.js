@@ -117,19 +117,19 @@ export class EntityWorld {
       if (target.removed) continue;
       const def = registry.get(target.classname);
 
-      // Enable/Disable/Kill work on every entity, so behaviours don't each
-      // have to reimplement them.
-      if (inputName === 'Enable') { target.enabled = true; continue; }
-      if (inputName === 'Disable') { target.enabled = false; continue; }
-      if (inputName === 'Kill') { this.remove(target); continue; }
-      if (inputName === 'Toggle' && (!def || !def.inputs || !def.inputs.Toggle)) {
-        target.enabled = !target.enabled;
+      // A class's own handler always wins. The universal fallbacks below are
+      // conveniences for entities that don't implement them — running them
+      // first would mean `Kill` on an NPC deleted it outright instead of
+      // letting npc_grunt's handler play the death and leave a ragdoll.
+      if (def && def.inputs && def.inputs[inputName]) {
+        def.inputs[inputName](target, this, ctx);
         continue;
       }
 
-      if (def && def.inputs && def.inputs[inputName]) {
-        def.inputs[inputName](target, this, ctx);
-      }
+      if (inputName === 'Enable') { target.enabled = true; continue; }
+      if (inputName === 'Disable') { target.enabled = false; continue; }
+      if (inputName === 'Kill') { this.remove(target); continue; }
+      if (inputName === 'Toggle') { target.enabled = !target.enabled; continue; }
     }
   }
 

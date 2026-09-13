@@ -12,6 +12,7 @@ import {
   anglesToForward, anglesToRight,
 } from './math.js';
 import { killNPC } from './entities.js';
+import { GameConsole } from './console.js';
 
 // Single source of truth, shared with the ragdoll solver: impulses convert
 // force to a verlet position offset using this exact value, so the two drifting
@@ -66,7 +67,7 @@ class Player {
   get forward() { return anglesToForward(this.angles); }
 
   takeDamage(amount, source) {
-    if (this.dead) return;
+    if (this.dead || this.godMode) return;
     this.health -= amount;
     this.damageFlash = 1;
     playSound('hurt', 0.7);
@@ -132,7 +133,10 @@ export class Game {
     this.debugText = '';
     this.sensitivity = 0.14;
     this.onStatsChanged = null;
+    this.fov = 78;
+    this.timescale = 1;
     this.bindInput();
+    this.console = new GameConsole(this);
   }
 
   async load(mapUrl) {
@@ -205,6 +209,8 @@ export class Game {
     const canvas = this.canvas;
 
     window.addEventListener('keydown', (e) => {
+      // Typing in the console (or any text field) must not also drive the game.
+      if (this.typingElsewhere(e)) return;
       if (e.code === 'Tab') e.preventDefault();
       // Arrow keys would scroll the page, and they're the one look control
       // that works even where the mouse can't be captured at all.
@@ -271,6 +277,13 @@ export class Game {
     });
   }
 
+  /** True when keystrokes belong to the console or another text field. */
+  typingElsewhere(e) {
+    if (this.console && this.console.open) return true;
+    const el = e.target;
+    return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+  }
+
   /** The one place camera angles move, whatever the input route. */
   applyLook(dx, dy) {
     if (!this.player) return;
@@ -292,6 +305,16 @@ export class Game {
 
   restart() {
     if (this.mapDoc) this.loadMapDocument(this.mapDoc);
+  }
+
+  /** Where the player is looking, used by console spawn commands. */
+  aimPoint(maxRange = 60) {
+    const origin = this.player.eyePosition;
+    const end = add(origin, mul(this.player.forward, maxRange));
+    const trace = this.collision.traceRay(origin, end);
+    const point = trace.hit ? trace.endPos : end;
+    // Lift off the surface so a spawned entity isn't born inside the floor.
+    return [point[0], point[1] + 0.3, point[2]];
   }
 
   wishDirection() {
@@ -403,6 +426,18 @@ export class Game {
     if (player.dead) {
       player.respawnTimer -= dt;
       if (player.respawnTimer <= 0) player.respawn();
+    } else if (player.noclip) {
+      // Free flight, ignoring geometry entirely. Space/Shift climb and drop.
+      const wish = this.wishDirection();
+      const forward = anglesToForward(player.angles);
+      const vertical = (this.keys.has('Space') ? 1 : 0) - (this.keys.has('ShiftLeft') ? 1 : 0);
+      const speed = player.controller.maxSpeed * 2.2;
+      const dir = len(wish) > 0 ? norm(wish) : [0, 0, 0];
+      // Pitch matters while flying, so W follows where you're actually looking.
+      const move = add(mul(dir, speed), mul(forward, len(wish) > 0 ? forward[1] * speed : 0));
+      player.controller.position = add(player.controller.position, mul(move, dt));
+      player.controller.position[1] += vertical * speed * dt;
+      player.controller.velocity = [0, 0, 0];
     } else {
       const wish = this.wishDirection();
       const wantJump = this.keys.has('Space');
@@ -449,7 +484,7 @@ export class Game {
       // from input, and blending them would add a frame of aim latency.
       position: player.interpolatedEye(alpha),
       forward: player.forward,
-      fov: 78,
+      fov: this.fov ?? 78,
     };
 
     this.env.pointLights = this.world.collectPointLights();
@@ -507,7 +542,7 @@ export class Game {
     }
 
     if (!this.paused) {
-      this.accumulator += frameTime;
+      this.accumulator += frameTime * (this.timescale ?? 1);
       let steps = 0;
       while (this.accumulator >= FIXED_DT && steps < MAX_SUBSTEPS) {
         this.step(FIXED_DT);
