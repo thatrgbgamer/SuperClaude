@@ -143,6 +143,7 @@ The skill's reference docs are worth reading directly too:
 {slug}/
 ├── run.sh                  Serve the game locally
 ├── serve.sh                Run a multiplayer server
+├── package.json            Marks the engine's .js as ES modules; no deps
 ├── index.html              Game shell and HUD; the map list lives here
 ├── editor/index.html       In-browser level editor
 ├── engine/                 Vendored Fount engine — don't edit to build a game
@@ -174,6 +175,18 @@ and this README are never overwritten.
 ## License
 
 MIT for the engine (see `engine/LICENSE-FOUNT`). Your game content is yours.
+"""
+
+
+# Node needs to know the engine's .js files are ES modules, because the
+# multiplayer server imports the engine's collision code to validate players.
+# In a project whose package.json says CommonJS, Node refuses to load them at
+# all. No dependencies, nothing to install — just the module type.
+PACKAGE_JSON = """{{
+  "name": "{slug}",
+  "private": true,
+  "type": "module"
+}}
 """
 
 
@@ -284,6 +297,7 @@ def scaffold(target, title, slug, holder, dry_run):
           "See `.claude/skills/fount-gamedev/references/custom-behaviors.md`.\n")
     write("README.md", project_readme(title, slug))
     write(".gitignore", GITIGNORE)
+    write("package.json", PACKAGE_JSON.format(slug=slug))
     write("LICENSE", MIT_TEMPLATE.format(year=time.strftime("%Y"), holder=holder))
 
     maps = [("game/maps/start.json", "start — your first level")]

@@ -5,11 +5,14 @@
 //   node server/server.mjs
 //   node server/server.mjs --port 8080 --name "My Server" --map game/maps/dm_crucible.json
 //
-// Trust model, stated plainly because it governs what this is safe for:
-// clients report their own position. The server relays state, enforces rate
-// limits and a speed sanity check, and owns scores, chat and admin — but a
-// modified client can still cheat at movement. That is the right trade for
-// friends-and-community servers; it is not suitable for ranked competition.
+// Trust model, stated plainly because it governs what this is safe for. The
+// server loads the map and shares the engine's own collision code, so it checks
+// what it can actually check: it owns health, damage, death and scoring, it
+// validates every shot and every hit against real geometry with lag
+// compensation, and it rejects movement that runs through walls. What it does
+// NOT do is simulate movement from inputs — it validates the positions clients
+// report and corrects them when they are impossible. See anticheat.mjs and the
+// README's trust model section for where that line sits.
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -17,13 +20,18 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { attachWebSocketServer } from './websocket.mjs';
+import { buildMap } from '../engine/map.js';
+import { AntiCheat, PRESETS, newPlayerState } from './anticheat.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function parseArgs(argv) {
   // map stays null until resolveStartMap picks one, so we can tell "the user
   // asked for this map" (a typo should be fatal) from "nobody said" (find one).
-  const args = { port: 8099, name: 'Fount Server', map: null, maxPlayers: 16, host: '0.0.0.0' };
+  const args = {
+    port: 8099, name: 'Fount Server', map: null, maxPlayers: 16, host: '0.0.0.0',
+    anticheat: 'normal', cheats: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
@@ -32,6 +40,9 @@ function parseArgs(argv) {
     else if (a === '--map' || a === '-m') args.map = next();
     else if (a === '--max' ) args.maxPlayers = parseInt(next(), 10);
     else if (a === '--host') args.host = next();
+    else if (a === '--anticheat') args.anticheat = String(next() || '').toLowerCase();
+    else if (a === '--cheats') args.cheats = true;
+    else if (a === '--verbose' || a === '-v') args.verbose = true;
     else if (a === '--help' || a === '-h') { printHelp(); process.exit(0); }
   }
   return args;
@@ -48,6 +59,9 @@ Fount multiplayer server
   --map,  -m <path>  Starting map (default: the first one in game/maps/)
   --max <n>          Maximum players (default 16)
   --host <addr>      Bind address (default 0.0.0.0, all interfaces)
+  --anticheat <lvl>  off | lenient | normal | strict (default normal)
+  --cheats           Allow clients to use noclip/god/give (off by default)
+  --verbose, -v      Log every anticheat flag, not just warnings
 
 Once running, type admin commands directly into this terminal.
 Type "help" there for the list.
@@ -103,7 +117,10 @@ function serveStatic(req, res) {
 const TICK_MS = 50;                 // 20Hz snapshots
 const INPUT_RATE_LIMIT = 40;        // client position updates per second
 const CHAT_RATE_LIMIT = 4;          // messages per 5 seconds
-const MAX_SPEED_SANITY = 40;        // m/s; well above legitimate movement
+const SHOT_RATE_LIMIT = 15;         // hard ceiling; the weapon cooldown is finer
+const INTERP_DELAY_MS = 100;        // must match engine/net.js, for lag compensation
+const RESPAWN_DELAY_MS = 2400;      // the client waits 2.5s; allow a little early
+const MAX_HEALTH = 100;
 
 function mapExists(rel) {
   if (typeof rel !== 'string' || !rel) return false;
@@ -143,6 +160,65 @@ const players = new Map();          // id -> player
 const bans = new Set();             // remote addresses
 let currentMap = resolveStartMap(args.map);
 const startedAt = Date.now();
+
+// Allowing client cheats and validating movement are contradictory: noclip is
+// movement through geometry by definition. So --cheats turns the movement half
+// off and leaves the combat half on, which is what still protects other players.
+const anticheat = new AntiCheat(args.anticheat, args.cheats ? { validateMovement: false } : {});
+// Every individual flag, for tuning a server or investigating a report. Off by
+// default because a busy server would drown in it.
+if (args.verbose) {
+  anticheat.onFlag = (player, kind, detail) => {
+    log(`  flag ${kind} ${player.name}#${player.id}${detail ? ` (${detail})` : ''} score=${player.ac.score.toFixed(0)}`);
+  };
+}
+if (!PRESETS[args.anticheat]) {
+  console.error(`Unknown anticheat level "${args.anticheat}"; using normal.`);
+  console.error(`Choose one of: ${Object.keys(PRESETS).join(', ')}`);
+}
+
+// The server loads the map for the same reason the client does: to collide
+// against it. Sharing engine/map.js means there is one implementation of what
+// is solid, so the server and an honest client never disagree.
+let world = null;
+let spawnPoints = [];
+
+function loadWorld(rel) {
+  const full = path.resolve(ROOT, rel);
+  const doc = JSON.parse(fs.readFileSync(full, 'utf8'));
+  const built = buildMap(doc);
+  world = built;
+  anticheat.setWorld(built);
+  spawnPoints = (built.entities || [])
+    .filter((e) => e.classname === 'info_player_start' && Array.isArray(e.origin))
+    .map((e) => [...e.origin]);
+  if (!spawnPoints.length) spawnPoints = [[0, 2, 0]];
+  return built;
+}
+
+try {
+  loadWorld(currentMap);
+} catch (err) {
+  console.error(`Could not load ${currentMap}: ${err.message}`);
+  console.error('The server needs to read the map to validate movement and shots.');
+  process.exit(1);
+}
+
+/** Spawn players apart from each other when the map offers the choice. */
+function pickSpawn() {
+  if (spawnPoints.length === 1) return [...spawnPoints[0]];
+  let best = spawnPoints[0];
+  let bestDist = -1;
+  for (const sp of spawnPoints) {
+    let nearest = Infinity;
+    for (const p of players.values()) {
+      if (p.dead) continue;
+      nearest = Math.min(nearest, Math.hypot(sp[0] - p.pos[0], sp[1] - p.pos[1], sp[2] - p.pos[2]));
+    }
+    if (nearest > bestDist) { bestDist = nearest; best = sp; }
+  }
+  return [...best];
+}
 
 const COLORS = [
   [1.0, 0.45, 0.4], [0.45, 0.75, 1.0], [0.55, 1.0, 0.6], [1.0, 0.85, 0.4],
@@ -229,7 +305,7 @@ attachWebSocketServer(httpServer, (connection) => {
     color: COLORS[(id - 1) % COLORS.length],
     pos: [0, 1, 0],
     angles: [0, 0, 0],
-    health: 100,
+    health: MAX_HEALTH,
     kills: 0,
     deaths: 0,
     dead: false,
@@ -238,9 +314,13 @@ attachWebSocketServer(httpServer, (connection) => {
     joinedAt: Date.now(),
     inputTimes: [],
     chatTimes: [],
-    lastPos: null,
-    lastPosTime: 0,
+    shotTimes: [],
+    selfDamageTimes: [],
+    diedAt: 0,
+    ac: newPlayerState(),
   };
+  player.pos = pickSpawn();
+  anticheat.grantGrace(player, player.pos, 3000);
   players.set(id, player);
 
   connection.on('message', (raw) => handleMessage(player, raw));
@@ -258,6 +338,12 @@ attachWebSocketServer(httpServer, (connection) => {
     map: currentMap,
     serverName: args.name,
     tickMs: TICK_MS,
+    spawn: player.pos,
+    // The client disables its own cheat commands unless the server allows them.
+    // Without this, an honest player using their own console would be kicked
+    // for noclipping — the anticheat cannot tell that apart from a cheat.
+    cheatsAllowed: !!args.cheats,
+    anticheat: anticheat.presetName,
     players: [...players.values()].filter((p) => p.id !== id).map(playerSummary),
   }));
 
@@ -277,6 +363,90 @@ function rateLimited(times, limit, windowMs) {
   return false;
 }
 
+/**
+ * Apply a validated hit. Health, death, scoring and the ragdoll everyone sees
+ * all follow from here, so there is exactly one path by which a player can be
+ * hurt and it is on the server.
+ */
+function applyDamage(target, attacker, resolved) {
+  target.health = Math.max(0, target.health - resolved.damage);
+  broadcast({
+    t: 'hit',
+    target: target.id,
+    by: attacker ? attacker.id : null,
+    damage: resolved.damage,
+    health: target.health,
+    point: resolved.point,
+    impulse: resolved.impulse,
+    headshot: !!resolved.headshot,
+  });
+
+  if (target.health > 0 || target.dead) return;
+
+  target.dead = true;
+  target.diedAt = Date.now();
+  target.deaths++;
+  if (attacker && attacker.id !== target.id) attacker.kills++;
+  broadcast({
+    t: 'kill',
+    victim: target.id,
+    killer: attacker ? attacker.id : null,
+    point: resolved.point,
+    impulse: resolved.impulse,
+  });
+  systemNotice(attacker && attacker.id !== target.id
+    ? `${attacker.name} killed ${target.name}`
+    : `${target.name} died`);
+}
+
+/**
+ * Put everyone back to a clean state for a new or restarted map. Every player
+ * is teleported, so each needs a grace window or the anticheat sees a server
+ * full of impossible moves at once.
+ */
+function resetForNewMap() {
+  for (const p of players.values()) {
+    p.dead = false;
+    p.health = MAX_HEALTH;
+    p.pos = pickSpawn();
+    anticheat.setAmmo(p, 30);
+    anticheat.grantGrace(p, p.pos, 4000);
+  }
+}
+
+function respawn(player) {
+  player.dead = false;
+  player.health = MAX_HEALTH;
+  player.pos = pickSpawn();
+  anticheat.setAmmo(player, 30);
+  // Without the grace window this teleport reads as a ~66m impossible move —
+  // measured on the demo map, and the commonest false positive there is.
+  anticheat.grantGrace(player, player.pos, 1500);
+  broadcast({ t: 'respawn', id: player.id, pos: player.pos, health: player.health });
+}
+
+/**
+ * Act on a player's accumulated violation score. Graduated on purpose: a single
+ * anomaly is far more often a lag spike than a cheat, so one bad tick warns
+ * nobody and a sustained pattern is what gets someone removed.
+ */
+function enforce(player, verdictBefore) {
+  const verdict = anticheat.verdict(player);
+  if (verdict === verdictBefore) return;
+
+  const r = anticheat.report(player);
+  if (verdict === 'warn') {
+    log(`anticheat: ${player.name} (#${player.id}) score ${r.score.toFixed(0)} — ${r.kinds}`);
+    for (const p of players.values()) {
+      if (p.admin) p.connection.send(JSON.stringify({ t: 'cmdresult', text: `anticheat: ${player.name} score ${r.score.toFixed(0)} — ${r.kinds}` }));
+    }
+  } else if (verdict === 'kick') {
+    log(`anticheat: kicking ${player.name} (#${player.id}) — score ${r.score.toFixed(0)}, ${r.kinds}`);
+    systemNotice(`${player.name} was removed by the anticheat (${r.kinds})`);
+    player.connection.close(4008, 'anticheat');
+  }
+}
+
 function handleMessage(player, raw) {
   let msg;
   try {
@@ -289,29 +459,27 @@ function handleMessage(player, raw) {
   switch (msg.t) {
     case 'input': {
       if (rateLimited(player.inputTimes, INPUT_RATE_LIMIT, 1000)) return;
-      const pos = finiteVec(msg.pos, player.pos);
-
-      // Sanity check, not real anti-cheat: catches obviously broken or
-      // teleporting clients without pretending the server is authoritative.
       const now = Date.now();
-      if (player.lastPos && player.lastPosTime) {
-        const dt = Math.max((now - player.lastPosTime) / 1000, 0.001);
-        const dist = Math.hypot(pos[0] - player.lastPos[0], pos[1] - player.lastPos[1], pos[2] - player.lastPos[2]);
-        if (dist / dt > MAX_SPEED_SANITY && dt < 1) {
-          player.suspicious = (player.suspicious || 0) + 1;
-          if (player.suspicious === 20) log(`warning: ${player.name} is moving implausibly fast`);
-        }
-      }
-      player.lastPos = pos;
-      player.lastPosTime = now;
 
-      player.pos = pos;
+      // Latency comes from the transport's own ping/pong, never from the
+      // client: a self-reported round trip is just another number a cheat
+      // would inflate to widen its rewind window.
+      player.ac.rtt = Math.max(0, Math.min(400, (player.connection.latencyMs || 0) * 0.5));
+
       player.angles = finiteVec(msg.angles, player.angles);
+
+      const verdictBefore = anticheat.verdict(player);
+      const result = anticheat.checkMove(player, finiteVec(msg.pos, player.pos), player.angles, now);
+      player.pos = result.pos;
       player.moving = !!msg.moving;
-      if (typeof msg.health === 'number' && Number.isFinite(msg.health)) {
-        player.health = Math.max(0, Math.min(1000, msg.health));
+
+      // Health, death and scoring are the server's. A client that reports its
+      // own health is reporting a number nobody reads — which is the point:
+      // godmode and self-resurrection are not expressible in this protocol.
+      if (result.corrected) {
+        player.connection.send(JSON.stringify({ t: 'correct', pos: player.pos, reason: result.reason }));
       }
-      player.dead = !!msg.dead;
+      enforce(player, verdictBefore);
       return;
     }
 
@@ -326,51 +494,60 @@ function handleMessage(player, raw) {
     }
 
     case 'shoot': {
-      // Relayed so everyone sees and hears the shot; damage is resolved by
-      // the shooter's client and reported as a 'hit'.
-      broadcast({
-        t: 'shoot',
-        id: player.id,
-        origin: finiteVec(msg.origin, player.pos),
-        dir: finiteVec(msg.dir, [0, 0, 1]),
-      }, player.id);
+      if (rateLimited(player.shotTimes, SHOT_RATE_LIMIT, 1000)) return;
+      const origin = finiteVec(msg.origin, player.pos);
+      const dir = finiteVec(msg.dir, [0, 0, 1]);
+      // A shot the server rejects is not relayed at all, so a client that
+      // ignores the fire rate or shoots while dead makes no noise and, because
+      // hits must match an accepted shot, lands no damage either.
+      const shot = anticheat.noteShot(player, origin, dir, Date.now());
+      if (!shot.ok) {
+        enforce(player, 'ok');
+        return;
+      }
+      broadcast({ t: 'shoot', id: player.id, origin, dir }, player.id);
       return;
     }
 
     case 'hit': {
       const target = players.get(msg.target);
       if (!target || target.dead) return;
-      const damage = Math.max(0, Math.min(200, Number(msg.damage) || 0));
-      target.health = Math.max(0, target.health - damage);
-      broadcast({
-        t: 'hit',
-        target: target.id,
-        by: player.id,
-        damage,
-        point: finiteVec(msg.point, target.pos),
-        impulse: finiteVec(msg.impulse, [0, 0, 0]),
-      });
-      if (target.health <= 0 && !target.dead) {
-        target.dead = true;
-        target.deaths++;
-        if (player.id !== target.id) player.kills++;
-        broadcast({
-          t: 'kill',
-          victim: target.id,
-          killer: player.id,
-          point: finiteVec(msg.point, target.pos),
-          impulse: finiteVec(msg.impulse, [0, 0, 0]),
-        });
-        systemNotice(`${player.name} killed ${target.name}`);
+
+      // The client says who it hit. The server decides whether that was
+      // possible — the shot must exist, the ray must reach the target where
+      // the shooter could see them, and nothing solid may be in the way — and
+      // then decides the damage itself. msg.damage is deliberately not read.
+      const resolved = anticheat.resolveHit(player, target, msg, Date.now(), INTERP_DELAY_MS);
+      if (!resolved.ok) {
+        enforce(player, 'ok');
+        return;
       }
+
+      applyDamage(target, player, resolved);
+      return;
+    }
+
+    case 'selfdamage': {
+      // NPCs, explosions and falls are simulated on each client, so the server
+      // cannot observe them. Accepting a client's word here is safe in a way
+      // accepting its word about hitting someone else is not: the only thing
+      // this can do is kill the sender. Capped and rate-limited anyway, so it
+      // cannot be used to spam the damage broadcast.
+      if (player.dead) return;
+      if (rateLimited(player.selfDamageTimes, 20, 1000)) return;
+      const amount = Math.max(0, Math.min(MAX_HEALTH, Number(msg.amount) || 0));
+      if (!amount) return;
+      applyDamage(player, null, { damage: amount, point: [...player.pos], impulse: [0, 0, 0] });
       return;
     }
 
     case 'respawn': {
-      player.dead = false;
-      player.health = 100;
-      player.pos = finiteVec(msg.pos, player.pos);
-      broadcast({ t: 'respawn', id: player.id, pos: player.pos });
+      // The client asks; the server decides when and where. A client that
+      // simply declares itself alive again is ignored, and the spawn point is
+      // the server's choice so nobody respawns inside someone else.
+      if (!player.dead) return;
+      if (Date.now() - player.diedAt < RESPAWN_DELAY_MS) return;
+      respawn(player);
       return;
     }
 
@@ -431,6 +608,7 @@ function runAdminCommand(line, issuedBy = 'console') {
         'admin <who>       Grant in-game admin rights',
         'unadmin <who>     Revoke admin rights',
         'map <path>        Change the map for everyone',
+        'anticheat [level] Show flagged players, or set off|lenient|normal|strict',
         'restart           Restart the current map for everyone',
         'quit              Shut the server down',
       ].join('\n');
@@ -439,7 +617,10 @@ function runAdminCommand(line, issuedBy = 'console') {
       if (!players.size) return 'No players connected.';
       const rows = [...players.values()].map((p) => {
         const mins = Math.floor((Date.now() - p.joinedAt) / 60000);
-        return `  #${p.id} ${p.name.padEnd(20)} ${String(p.kills).padStart(3)}k/${String(p.deaths).padStart(3)}d  ${p.admin ? 'admin ' : '      '}${mins}m  ${p.connection.remoteAddress}`;
+        const ping = p.connection.latencyMs ? `${Math.round(p.connection.latencyMs)}ms` : '-';
+        const score = anticheat.report(p).score;
+        const flag = score >= anticheat.config.warnScore ? ` !${score.toFixed(0)}` : '';
+        return `  #${p.id} ${p.name.padEnd(20)} ${String(p.kills).padStart(3)}k/${String(p.deaths).padStart(3)}d  ${p.admin ? 'admin ' : '      '}${mins}m  ${ping.padStart(6)}  ${p.connection.remoteAddress}${flag}`;
       });
       return `${players.size}/${args.maxPlayers} players on ${currentMap}\n${rows.join('\n')}`;
     }
@@ -500,13 +681,42 @@ function runAdminCommand(line, issuedBy = 'console') {
       // Changing to a map that isn't there would 404 every client at once, so
       // refuse the typo rather than emptying the server.
       if (!mapExists(rest[0])) return `No such map: ${rest[0]} (server still on ${currentMap})`;
+      try {
+        loadWorld(rest[0]);
+      } catch (err) {
+        return `Could not load ${rest[0]}: ${err.message} (server still on ${currentMap})`;
+      }
       currentMap = rest[0];
+      resetForNewMap();
       broadcast({ t: 'map', map: currentMap });
       systemNotice(`Map changed to ${currentMap} by ${issuedBy}`);
       return `map set to ${currentMap}`;
     }
 
+    case 'anticheat': {
+      if (!rest[0]) {
+        const rows = [...players.values()]
+          .map((p) => ({ p, r: anticheat.report(p) }))
+          .filter((x) => x.r.score > 0 || x.r.corrections > 0)
+          .sort((a, b) => b.r.score - a.r.score)
+          .map((x) => `  #${x.p.id} ${x.p.name.padEnd(20)} score ${x.r.score.toFixed(0).padStart(4)}  corrections ${String(x.r.corrections).padStart(4)}  ${x.r.kinds}`);
+        return [
+          `anticheat: ${anticheat.enabled ? anticheat.presetName : 'off'}`
+            + `  (warn ${anticheat.config.warnScore}, kick ${anticheat.config.kickScore === Infinity ? 'never' : anticheat.config.kickScore})`
+            + `  client cheats ${args.cheats ? 'allowed (movement checks off)' : 'blocked'}`,
+          rows.length ? rows.join('\n') : '  nothing flagged',
+        ].join('\n');
+      }
+      const level = String(rest[0]).toLowerCase();
+      if (!PRESETS[level]) return `Unknown level "${level}". Choose: ${Object.keys(PRESETS).join(', ')}`;
+      anticheat.setPreset(level, args.cheats ? { validateMovement: false } : {});
+      anticheat.setWorld(world);
+      systemNotice(`Anticheat set to ${level} by ${issuedBy}`);
+      return `anticheat = ${level}`;
+    }
+
     case 'restart':
+      resetForNewMap();
       broadcast({ t: 'map', map: currentMap });
       systemNotice(`Map restarted by ${issuedBy}`);
       return 'restarted';
@@ -527,9 +737,20 @@ function runAdminCommand(line, issuedBy = 'console') {
 
 setInterval(() => {
   if (!players.size) return;
+  const now = Date.now();
+
+  for (const p of players.values()) {
+    // Falling out of the world kills you. The client does this locally too,
+    // but health is the server's now, so the server has to be the one that
+    // decides — otherwise a fall would desync everyone's idea of who is alive.
+    if (!p.dead && world && p.pos[1] < (world.bounds.min[1] - 60)) {
+      applyDamage(p, null, { damage: MAX_HEALTH, point: [...p.pos], impulse: [0, 0, 0] });
+    }
+  }
+
   broadcast({
     t: 'state',
-    time: Date.now(),
+    time: now,
     players: [...players.values()].map(playerSummary),
   });
 }, TICK_MS);

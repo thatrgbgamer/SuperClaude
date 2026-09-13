@@ -67,7 +67,14 @@ class Player {
 
   get forward() { return anglesToForward(this.angles); }
 
-  takeDamage(amount, source) {
+  /**
+   * `fromServer` marks damage the server already applied and broadcast. Damage
+   * without it came from something this client simulates alone — an NPC, an
+   * explosion, a fall — and has to be reported, because NPCs run per-client and
+   * the server owns health. Reporting your own damage is safe to trust: the
+   * only thing a client can achieve by lying is hurting itself.
+   */
+  takeDamage(amount, source, fromServer = false) {
     if (this.dead || this.godMode) return;
     this.health -= amount;
     this.damageFlash = 1;
@@ -78,6 +85,7 @@ class Player {
       this.respawnTimer = 2.5;
       playSound('die');
     }
+    if (!fromServer && this.net && this.net.connected) this.net.reportSelfDamage(amount);
     void source;
   }
 
@@ -174,6 +182,9 @@ export class Game {
       yaw: startEntity && startEntity.angles ? startEntity.angles[1] : 0,
       ...(built.player || {}),
     });
+    // The player reports locally-simulated damage (NPCs, explosions) so the
+    // server's authoritative health stays in step with what this client sees.
+    this.player.net = this.net || null;
 
     this.world = new EntityWorld({
       collision: this.collision,
@@ -367,13 +378,7 @@ export class Game {
       const remote = this.net.pickPlayer(origin, dir, bestDist);
       if (remote) {
         const point = add(origin, mul(dir, remote.t));
-        const headshot = point[1] > remote.player.pos[1] + 0.55;
-        this.net.reportHit(
-          remote.player.id,
-          headshot ? 100 : 25,
-          point.map((n) => +n.toFixed(2)),
-          mul(dir, headshot ? 16 : 9),
-        );
+        this.net.reportHit(remote.player.id, point.map((n) => +n.toFixed(2)));
         playSoundAt('impact', point, this.player.eyePosition, 40);
         return;
       }
@@ -455,8 +460,11 @@ export class Game {
     if (player.dead) {
       player.respawnTimer -= dt;
       if (player.respawnTimer <= 0) {
-        player.respawn();
-        if (this.net && this.net.connected) this.net.reportRespawn(player.controller.position);
+        // On a server the respawn is the server's to grant: it picks the spawn
+        // point and the moment, and replies with a 'respawn' we act on. Coming
+        // back to life locally would be a claim the server does not honour.
+        if (this.net && this.net.connected) this.net.requestRespawn();
+        else player.respawn();
       }
     } else if (player.noclip) {
       // Free flight, ignoring geometry entirely. Space/Shift climb and drop.
@@ -490,7 +498,10 @@ export class Game {
         }
       }
 
-      if (player.position[1] < -60) {
+      if (player.position[1] < -60 && !(this.net && this.net.connected)) {
+        // Offline only: on a server, health belongs to the server, which does
+        // this check itself. Doing it locally too would mean two authorities
+        // disagreeing about who is alive.
         player.takeDamage(1000, null);
       }
     }

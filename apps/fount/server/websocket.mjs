@@ -133,6 +133,15 @@ export class WebSocketConnection {
     }
     if (opcode === OP_PONG) {
       this.isAlive = true;
+      // Round-trip time, measured where it is cheapest to measure: the
+      // keepalive already runs, so latency costs no extra protocol traffic.
+      // The server uses it to size how far it rewinds players when checking a
+      // shot, so it has to come from the transport rather than from the client.
+      if (this.pingSentAt) {
+        const sample = Date.now() - this.pingSentAt;
+        this.latencyMs = this.latencyMs == null ? sample : this.latencyMs * 0.7 + sample * 0.3;
+        this.pingSentAt = 0;
+      }
       return;
     }
 
@@ -202,6 +211,7 @@ export class WebSocketConnection {
 
   ping() {
     this.isAlive = false;
+    this.pingSentAt = Date.now();
     this.sendFrame(OP_PING, Buffer.alloc(0));
   }
 
@@ -227,7 +237,9 @@ export class WebSocketConnection {
  * onConnection(connection) is called once the handshake completes.
  */
 export function attachWebSocketServer(httpServer, onConnection, options = {}) {
-  const pingInterval = options.pingIntervalMs ?? 15000;
+  // Frequent enough to keep the latency estimate current for lag compensation,
+  // which is the reason this is 4s rather than the 15s a pure keepalive wants.
+  const pingInterval = options.pingIntervalMs ?? 4000;
   const connections = new Set();
 
   httpServer.on('upgrade', (request, socket) => {
@@ -255,10 +267,18 @@ export function attachWebSocketServer(httpServer, onConnection, options = {}) {
   });
 
   // Drop sockets that stopped answering, so a player who pulled the plug
-  // doesn't linger in the scoreboard forever.
+  // doesn't linger in the scoreboard forever. Tolerate several missed pongs
+  // rather than one: pings are frequent enough to measure latency with, and at
+  // that rate a single miss is a lag spike, not a departure.
+  const missesAllowed = options.pingMissesAllowed ?? 3;
   const timer = setInterval(() => {
     for (const c of connections) {
-      if (!c.isAlive) { c.close(1001, 'ping timeout'); continue; }
+      if (!c.isAlive) {
+        c.pingMisses = (c.pingMisses || 0) + 1;
+        if (c.pingMisses > missesAllowed) { c.close(1001, 'ping timeout'); continue; }
+      } else {
+        c.pingMisses = 0;
+      }
       c.ping();
     }
   }, pingInterval);

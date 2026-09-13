@@ -32,15 +32,29 @@ export class GameConsole {
 
   /** register('noclip', 'Toggle collision', (args, ctx) => string | void) */
   register(name, help, run, options = {}) {
-    this.commands.set(name.toLowerCase(), { name, help, run, usage: options.usage || '' });
+    this.commands.set(name.toLowerCase(), {
+      name, help, run, usage: options.usage || '', cheat: !!options.cheat,
+    });
+  }
+
+  /**
+   * Cheat commands are blocked on a server that hasn't enabled them — the same
+   * rule Quake and Source use, and here it is protective as much as fair: the
+   * anticheat cannot tell an honest player's noclip from a cheat client's, so
+   * without this the console would be a way to get yourself kicked.
+   */
+  cheatsBlocked() {
+    const net = this.game && this.game.net;
+    if (!net || !net.connected) return false;      // single-player: your game, your rules
+    return !net.cheatsAllowed;
   }
 
   /**
    * A cvar is a named value with a setter, so `set` and tab-completion work
    * uniformly instead of each tunable needing its own bespoke command.
    */
-  registerCvar(name, help, get, set) {
-    this.cvars.set(name.toLowerCase(), { name, help, get, set });
+  registerCvar(name, help, get, set, options = {}) {
+    this.cvars.set(name.toLowerCase(), { name, help, get, set, cheat: !!options.cheat });
   }
 
   // -------------------------------------------------------------------------
@@ -88,6 +102,10 @@ export class GameConsole {
 
     const command = this.commands.get(name);
     if (command) {
+      if (command.cheat && this.cheatsBlocked()) {
+        this.warn(`${command.name} is disabled on this server.`);
+        return;
+      }
       try {
         const result = command.run(args, { source, console: this, game: this.game });
         if (result !== undefined && result !== null) this.print(result);
@@ -97,11 +115,14 @@ export class GameConsole {
       return;
     }
 
-    // Bare cvar name prints it; `name value` sets it.
+    // Bare cvar name prints it; `name value` sets it. Reading is always
+    // allowed; writing a cheat-protected one is not, on a server that says so.
     const cvar = this.cvars.get(name);
     if (cvar) {
       if (!args.length) {
         this.print(`${cvar.name} = ${cvar.get()}`);
+      } else if (cvar.cheat && this.cheatsBlocked()) {
+        this.warn(`${cvar.name} is locked on this server.`);
       } else {
         this.setCvar(cvar, args.join(' '));
       }
@@ -168,14 +189,14 @@ export class GameConsole {
       p.noclip = !p.noclip;
       if (p.noclip) p.controller.velocity = [0, 0, 0];
       return `noclip ${p.noclip ? 'ON' : 'off'}`;
-    });
+    }, { cheat: true });
 
     this.register('god', 'Toggle invulnerability', () => {
       const p = player();
       p.godMode = !p.godMode;
       if (p.godMode) p.health = p.maxHealth;
       return `god ${p.godMode ? 'ON' : 'off'}`;
-    });
+    }, { cheat: true });
 
     this.register('give', 'Give health or ammo', (args) => {
       const what = (args[0] || '').toLowerCase();
@@ -185,7 +206,7 @@ export class GameConsole {
       if (what === 'ammo') { p.ammo += amount; return `ammo = ${p.ammo}`; }
       if (what === 'all') { p.health = p.maxHealth; p.ammo += 999; return 'gave health and ammo'; }
       return 'usage: give health|ammo|all [amount]';
-    }, { usage: 'health|ammo|all [amount]' });
+    }, { usage: 'health|ammo|all [amount]', cheat: true });
 
     this.register('teleport', 'Move the player to coordinates', (args) => {
       const [x, y, z] = args.map(parseFloat);
@@ -193,7 +214,7 @@ export class GameConsole {
       player().controller.position = [x, y, z];
       player().controller.velocity = [0, 0, 0];
       return `teleported to ${x} ${y} ${z}`;
-    }, { usage: '<x> <y> <z>' });
+    }, { usage: '<x> <y> <z>', cheat: true });
 
     this.register('where', 'Print the player position and angles', () => {
       const p = player().controller.position.map((n) => n.toFixed(2));
@@ -214,7 +235,7 @@ export class GameConsole {
       }
       world().spawn(data);
       return `spawned ${classname} at ${data.origin.join(' ')}`;
-    }, { usage: '<classname> [key value ...]' });
+    }, { usage: '<classname> [key value ...]', cheat: true });
 
     this.register('ragdoll', 'Drop a ragdoll at the crosshair', () => {
       const g = game();
@@ -350,13 +371,13 @@ export class GameConsole {
     this.registerCvar('fov', 'Field of view in degrees',
       () => this.game.fov ?? 78, (v) => { this.game.fov = Math.max(50, Math.min(130, v)); });
     this.registerCvar('gravity', 'Player gravity',
-      () => player().controller.gravity, (v) => { player().controller.gravity = v; });
+      () => player().controller.gravity, (v) => { player().controller.gravity = v; }, { cheat: true });
     this.registerCvar('speed', 'Player max ground speed',
-      () => player().controller.maxSpeed, (v) => { player().controller.maxSpeed = v; });
+      () => player().controller.maxSpeed, (v) => { player().controller.maxSpeed = v; }, { cheat: true });
     this.registerCvar('jump', 'Player jump speed',
-      () => player().controller.jumpSpeed, (v) => { player().controller.jumpSpeed = v; });
+      () => player().controller.jumpSpeed, (v) => { player().controller.jumpSpeed = v; }, { cheat: true });
     this.registerCvar('timescale', 'Simulation speed multiplier',
-      () => this.game.timescale ?? 1, (v) => { this.game.timescale = Math.max(0.05, Math.min(4, v)); });
+      () => this.game.timescale ?? 1, (v) => { this.game.timescale = Math.max(0.05, Math.min(4, v)); }, { cheat: true });
     this.registerCvar('maxbodies', 'Maximum simultaneous ragdolls',
       () => this.game.ragdolls.maxRagdolls, (v) => { this.game.ragdolls.maxRagdolls = Math.max(1, Math.floor(v)); });
     this.registerCvar('showfps', 'Show the performance readout',

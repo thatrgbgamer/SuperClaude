@@ -114,9 +114,15 @@ export class NetClient {
         this.selfId = msg.id;
         this.serverName = msg.serverName;
         if (!this.name) this.name = msg.name;
+        // The server decides whether its players may use cheat commands. The
+        // console reads this, so an honest player is stopped from noclipping
+        // into a kick rather than being punished for trying.
+        this.cheatsAllowed = !!msg.cheatsAllowed;
+        this.anticheat = msg.anticheat || 'unknown';
         this.status(`Joined ${msg.serverName} as ${this.name}`);
         for (const p of msg.players || []) this.upsert(p);
         if (msg.map && msg.map !== game.currentMapPath) this.loadServerMap(msg.map);
+        if (msg.spawn) this.teleportSelf(msg.spawn);
         break;
 
       case 'join':
@@ -155,8 +161,22 @@ export class NetClient {
 
       case 'hit':
         if (msg.target === this.selfId) {
-          game.player.takeDamage(msg.damage, null);
-          this.reportSelf(true);
+          // The server has already decided the damage and the resulting
+          // health; take its number rather than recomputing one locally that
+          // could drift (or be edited).
+          game.player.takeDamage(msg.damage, null, true);
+          if (typeof msg.health === 'number') game.player.health = msg.health;
+        }
+        break;
+
+      // The server rejected a move as impossible and put us back. Honest
+      // clients see this on a bad desync; a cheating one sees its movement
+      // undone, which is what makes the cheat pointless rather than punished.
+      case 'correct':
+        this.teleportSelf(msg.pos);
+        this.corrections = (this.corrections || 0) + 1;
+        if (this.corrections === 1 || this.corrections % 25 === 0) {
+          this.status(`Server corrected your position (${msg.reason || 'invalid move'})`);
         }
         break;
 
@@ -185,6 +205,13 @@ export class NetClient {
       }
 
       case 'respawn': {
+        if (msg.id === this.selfId) {
+          game.player.dead = false;
+          game.player.health = msg.health ?? game.player.maxHealth;
+          game.player.respawnTimer = 0;
+          if (msg.pos) this.teleportSelf(msg.pos);
+          break;
+        }
         const p = this.players.get(msg.id);
         if (p) { p.dead = false; p.snapshots.length = 0; }
         break;
@@ -210,6 +237,15 @@ export class NetClient {
 
       default:
     }
+  }
+
+  /** Move the local player where the server says, without fighting collision. */
+  teleportSelf(pos) {
+    const c = this.game.player.controller;
+    c.position = [pos[0], pos[1], pos[2]];
+    c.velocity = [0, 0, 0];
+    this.game.prevPosition = [...c.position];
+    this.reportSelf(true);
   }
 
   loadServerMap(mapPath) {
@@ -251,8 +287,6 @@ export class NetClient {
       t: 'input',
       pos: player.controller.position.map((n) => +n.toFixed(3)),
       angles: player.angles.map((n) => +n.toFixed(1)),
-      health: Math.ceil(player.health),
-      dead: player.dead,
       moving: speed > 0.6,
     });
   }
@@ -261,12 +295,28 @@ export class NetClient {
     this.send({ t: 'shoot', origin: origin.map((n) => +n.toFixed(2)), dir: dir.map((n) => +n.toFixed(3)) });
   }
 
-  reportHit(targetId, damage, point, impulse) {
-    this.send({ t: 'hit', target: targetId, damage, point, impulse });
+  // The client reports WHO it hit, because client-side hit detection is what
+  // makes shooting feel immediate. It deliberately does not report how much
+  // damage: the server recomputes that from its own rewound trace.
+  reportHit(targetId, point) {
+    this.send({ t: 'hit', target: targetId, point });
   }
 
-  reportRespawn(pos) {
-    this.send({ t: 'respawn', pos });
+  /**
+   * Damage this client simulated for itself — an NPC, an explosion, a fall.
+   * NPCs run per-client, so the server cannot see these and would otherwise
+   * think a player who just died locally is still at full health. Safe to
+   * trust because the only outcome a liar can buy is their own death.
+   */
+  reportSelfDamage(amount) {
+    if (!(amount > 0)) return;
+    this.send({ t: 'selfdamage', amount: Math.min(1000, Math.round(amount)) });
+  }
+
+  requestRespawn() {
+    if (this.lastRespawnRequest && Date.now() - this.lastRespawnRequest < 500) return;
+    this.lastRespawnRequest = Date.now();
+    this.send({ t: 'respawn' });
   }
 
   chat(text) {

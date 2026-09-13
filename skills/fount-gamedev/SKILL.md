@@ -72,19 +72,30 @@ there is nothing to build and nothing to `npm install`.
 ```
 
 Players type `connect` in the console; the terminal running the server is the
-admin console (`status`, `kick`, `ban`, `map`, `say`). The engine README's
-multiplayer section covers tunnels, reverse proxies and a systemd unit.
+admin console (`status`, `kick`, `ban`, `map`, `say`, `anticheat`). The engine
+README's multiplayer section covers tunnels, reverse proxies and a systemd unit.
+
+Server-side validation is on by default (`--anticheat off|lenient|normal|strict`).
+If a game's own scripts launch players faster than ordinary movement — jump pads,
+cannons — raise the speed cap or run `lenient`, or those launches will trickle
+harmless points into honest players' scores.
 
 Two things to keep in mind when authoring for it:
 
 - **Design maps for it deliberately.** Multiple `info_player_start` entities give
   players somewhere to spawn apart from each other; one spawn point means people
   materialise on top of one another.
-- **The server is not authoritative over movement.** Clients report their own
-  position and their own hits; the server owns scores, chat and admin. That is
-  the right trade for a community server and the wrong one for ranked play — say
-  so plainly if someone asks about anti-cheat rather than implying protection
-  that isn't there.
+- **The server validates; it does not simulate.** It owns health, damage, death
+  and scoring, re-traces every shot against the real map with lag compensation,
+  and corrects movement that passes through geometry. What it does not do is
+  reproduce movement from inputs or analyse behaviour, so a cheat that stays
+  inside the rules is not caught. Say that plainly if someone asks about
+  anti-cheat, rather than implying protection that isn't there — and point them
+  at the engine README's Anticheat section, which draws the line exactly.
+- **Cheat console commands are blocked on servers by default.** `noclip`, `god`,
+  `give`, `teleport` and the physics cvars only work in single-player, or on a
+  server started with `--cheats`. If someone reports that noclip "stopped
+  working", that is why.
 
 ## Where things live
 

@@ -1,0 +1,6 @@
+{
+  "name": "fount-engine",
+  "private": true,
+  "type": "module",
+  "description": "Declares the engine's .js files as ES modules. There are no dependencies here and there is nothing to install — this file exists only so Node reads engine/*.js the same way the browser does, when the server imports the engine's collision code to validate players."
+}
